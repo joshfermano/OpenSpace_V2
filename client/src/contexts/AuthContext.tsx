@@ -61,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
       console.log('Checking authentication status...');
+      console.log('Current timestamp:', new Date().toISOString());
 
       // Call the API which will check cookies
       const response = await authApi.getCurrentUser();
@@ -94,6 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const checkAuthOnMount = async () => {
       console.log('Checking authentication on component mount');
+      console.log('Current document.cookie:', document.cookie);
       await checkAuth();
       console.log('Initial auth check completed');
     };
@@ -232,7 +234,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Don't show loading indicator for subsequent auth checks
   if (isLoading && !authChecked) {
-    return <div>Loading authentication state...</div>;
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <div>Loading authentication state...</div>
+        <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
+          If this persists, try refreshing the page or clearing your cookies.
+        </div>
+      </div>
+    );
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

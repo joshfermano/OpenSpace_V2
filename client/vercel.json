@@ -6,5 +6,6 @@
       "use": "@vercel/static-build",
       "config": { "zeroConfig": true }
     }
-  ]
+  ],
+  "routes": [{ "src": "/[^.]+", "dest": "/", "status": 200 }]
 }

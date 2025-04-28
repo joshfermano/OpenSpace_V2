@@ -40,16 +40,33 @@ export const authApi = {
 
   login: async (email: string, password: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      console.log(
+        `Attempting login for email: ${email} to ${API_URL}/api/auth/login`
+      );
+
+      // In development, use a different approach for localhost
+      const url = `${API_URL}/api/auth/login`;
+      console.log(`Login URL: ${url}`);
+
+      const response = await fetch(url, {
         method: 'POST',
         credentials: 'include',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
+          Origin: window.location.origin,
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password,
+        }),
       });
 
+      console.log('Login response status:', response.status);
+      console.log('Login response headers:', [...response.headers.entries()]);
+
       const data = await response.json();
+      console.log('Login response data:', data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
@@ -83,6 +100,7 @@ export const authApi = {
   getCurrentUser: async () => {
     try {
       console.log('Fetching current user data...');
+      console.log('Current environment:', process.env.NODE_ENV);
 
       const requestUrl = `${API_URL}/api/auth/me`;
       console.log(`Sending request to: ${requestUrl}`);
@@ -90,10 +108,12 @@ export const authApi = {
       const response = await fetch(requestUrl, {
         method: 'GET',
         credentials: 'include',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache',
+          Origin: window.location.origin,
         },
       });
 
@@ -131,6 +151,14 @@ export const authApi = {
       return data;
     } catch (error) {
       console.error('Get current user error:', error);
+
+      // Show more detailed network error for debugging
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+
       return {
         success: false,
         isAuthError: false,

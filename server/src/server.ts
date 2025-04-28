@@ -68,14 +68,46 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
 const corsOptions = {
-  origin:
-    process.env.NODE_ENV === 'production'
-      ? [
-          /\.vercel\.app$/,
-          'https://openspace-reserve.vercel.app',
-          process.env.CLIENT_URL,
-        ].filter(Boolean)
-      : ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void
+  ) => {
+    const allowedOrigins =
+      process.env.NODE_ENV === 'production'
+        ? [
+            /\.vercel\.app$/,
+            'https://openspace-reserve.vercel.app',
+            'https://openspace-v2.vercel.app',
+            'https://openspace-api.onrender.com',
+            process.env.CLIENT_URL,
+          ].filter(Boolean)
+        : ['http://localhost:5173', 'http://localhost:3000'];
+
+    console.log('Request origin:', origin);
+    console.log('Allowed origins:', allowedOrigins);
+
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const originIsAllowed = allowedOrigins.some((allowedOrigin) => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      } else if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+
+    if (originIsAllowed) {
+      callback(null, true);
+    } else {
+      console.error(`Origin ${origin} not allowed by CORS`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
@@ -84,8 +116,11 @@ const corsOptions = {
     'X-Requested-With',
     'Cache-Control',
     'Pragma',
+    'Origin',
   ],
-  exposedHeaders: ['set-cookie'],
+  exposedHeaders: ['Set-Cookie'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
@@ -113,7 +148,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
       ...options,
     };
 
-    console.log(`Setting cookie: ${name}`, cookieOptions);
+    console.log(
+      `Setting cookie: ${name} with options:`,
+      JSON.stringify(cookieOptions)
+    );
+    console.log(`Current environment: ${process.env.NODE_ENV}`);
+    console.log(`Request origin: ${req.headers.origin}`);
 
     // Call original method with our enhanced options
     return originalCookie(name, val, cookieOptions);

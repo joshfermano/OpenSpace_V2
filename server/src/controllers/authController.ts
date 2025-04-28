@@ -145,15 +145,15 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('Login attempt:', { email: req.body.email });
-
-    const email = req.body.email?.toLowerCase().trim();
-    const password = req.body.password;
+    const { email, password } = req.body;
+    console.log(`Login attempt for email: ${email}`);
+    console.log(`Request headers:`, req.headers);
+    console.log(`Origin: ${req.headers.origin}`);
 
     if (!email || !password) {
       res.status(400).json({
         success: false,
-        message: 'Email and password are required',
+        message: 'Please provide email and password',
       });
       return;
     }
