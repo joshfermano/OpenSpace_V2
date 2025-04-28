@@ -10,6 +10,13 @@ import { checkSupabaseConnection } from './config/supabase';
 import { initializeStorage } from './services/imageService';
 import mongoose from 'mongoose';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import {
+  sanitizeRequest,
+  globalErrorHandler,
+  rateLimitErrorHandler,
+} from './middlewares/securityMiddleware';
 import 'dotenv/config';
 import fs from 'fs/promises';
 
@@ -27,6 +34,38 @@ import adminEarningsRoutes from './routes/adminEarningsRoutes';
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Security middlewares
+// Set security HTTP headers
+app.use(helmet());
+
+// Apply global request sanitization
+app.use(sanitizeRequest);
+
+// Rate limiting middleware
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+});
+
+// Apply rate limiting to all routes
+app.use('/api/', limiter);
+
+// More strict rate limiting for authentication routes
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // limit each IP to 10 login attempts per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many login attempts, please try again after an hour',
+});
+
+// Apply auth rate limiting specifically to authentication routes
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
 
 const corsOptions = {
   origin:
@@ -54,8 +93,8 @@ app.use(cookieParser());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(express.static(path.join(__dirname, '../uploads')));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -83,6 +122,35 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Middleware to sanitize data against NoSQL query injection
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (req.body) {
+    const sanitizeValue = (obj: any): any => {
+      if (obj && typeof obj === 'object') {
+        for (const key in obj) {
+          // Convert MongoDB operator keys ($...) to safe strings if not in a trusted context
+          if (key.startsWith('$')) {
+            const safeKey = key.replace('$', '_dollar_');
+            obj[safeKey] = obj[key];
+            delete obj[key];
+          } else if (typeof obj[key] === 'object') {
+            obj[key] = sanitizeValue(obj[key]);
+          }
+        }
+      }
+      return obj;
+    };
+
+    req.body = sanitizeValue(req.body);
+    req.query = sanitizeValue(req.query as any) as any;
+    req.params = sanitizeValue(req.params) as any;
+  }
+  next();
+});
+
+// Error handlers
+app.use(rateLimitErrorHandler);
+
 // API routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
@@ -93,6 +161,9 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/earnings', earningsRoutes);
 app.use('/api/email-verification', emailVerificationRoutes);
 app.use('/api/admin/earnings', adminEarningsRoutes);
+
+// Error handling middleware (must be after all routes)
+app.use(globalErrorHandler);
 
 // Health check route
 app.get('/api/health', (_req, res) => {

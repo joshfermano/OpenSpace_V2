@@ -12,13 +12,6 @@ const categoryToType: Record<string, string> = {
   'Events Place': 'event',
 };
 
-// Reverse mapping for displaying
-// const typeToCategory: Record<string, string> = {
-//   stay: 'Room Stay',
-//   conference: 'Conference Room',
-//   event: 'Events Place',
-// };
-
 const Homepage = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<boolean>(false);

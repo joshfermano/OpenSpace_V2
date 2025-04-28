@@ -458,7 +458,6 @@ export const processPayment = async (
           return;
         }
 
-        // Validate expiry date
         const [month, year] = expiryDate.split('/');
         const currentYear = new Date().getFullYear() % 100;
         const currentMonth = new Date().getMonth() + 1;

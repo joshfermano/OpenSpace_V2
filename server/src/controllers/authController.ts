@@ -6,6 +6,12 @@ import User, { IUser } from '../models/User';
 import OtpVerification from '../models/OtpVerification';
 import { sendVerificationEmail } from '../services/emailService';
 import mongoose from 'mongoose';
+import {
+  sanitizeInput,
+  isValidEmail,
+  isStrongPassword,
+  addDelay,
+} from '../utils/securityUtils';
 import 'dotenv/config';
 
 type AuthRequest = Request;
@@ -45,10 +51,13 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     console.log('Request body:', req.body);
 
-    const { email, password, firstName, lastName, phoneNumber, verifyPhone } =
-      req.body;
+    const email = req.body.email?.toLowerCase().trim();
+    const password = req.body.password;
+    const firstName = sanitizeInput(req.body.firstName);
+    const lastName = sanitizeInput(req.body.lastName);
+    const phoneNumber = sanitizeInput(req.body.phoneNumber || '');
+    const verifyPhone = req.body.verifyPhone === true;
 
-    // Validate required fields
     if (!email || !password || !firstName || !lastName) {
       res.status(400).json({
         success: false,
@@ -58,9 +67,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!isValidEmail(email)) {
       res.status(400).json({
         success: false,
         message: 'Please provide a valid email address',
@@ -68,17 +75,19 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Validate password strength
-    if (password.length < 8) {
+    const passwordCheck = isStrongPassword(password);
+    if (!passwordCheck.valid) {
       res.status(400).json({
         success: false,
-        message: 'Password must be at least 8 characters long',
+        message: passwordCheck.message,
       });
       return;
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') },
+    });
+
     if (existingUser) {
       res.status(400).json({
         success: false,
@@ -92,12 +101,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       password,
       firstName,
       lastName,
-      phoneNumber: phoneNumber || '',
+      phoneNumber,
       role: 'user',
       active: true,
       verificationLevel: 'basic',
       isEmailVerified: false,
-      isPhoneVerified: verifyPhone === true ? true : false,
+      isPhoneVerified: verifyPhone,
       isHostVerified: false,
       savedRooms: [] as mongoose.Types.ObjectId[],
     };
@@ -107,7 +116,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const token = generateToken(user);
 
     const cookieOptions: CookieOptions = {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+      maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
@@ -117,7 +126,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const userResponse = user.toObject();
     delete userResponse.password;
 
-    // Send verification email with OTP
     await sendInitialVerificationEmail(user._id, user.email, user.firstName);
 
     res.status(201).cookie('token', token, cookieOptions).json({
@@ -137,10 +145,32 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    console.log('Login attempt:', { email: req.body.email });
 
-    const user = await User.findOne({ email }).select('+password');
+    const email = req.body.email?.toLowerCase().trim();
+    const password = req.body.password;
+
+    if (!email || !password) {
+      res.status(400).json({
+        success: false,
+        message: 'Email and password are required',
+      });
+      return;
+    }
+
+    const user = await User.findOne({
+      email: {
+        $regex: new RegExp(
+          `^${email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`,
+          'i'
+        ),
+      },
+    }).select('+password');
+
+    console.log('User lookup result:', user ? 'User found' : 'User not found');
+
     if (!user) {
+      await addDelay();
       res.status(401).json({
         success: false,
         message: 'Invalid credentials',
@@ -157,7 +187,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const isMatch = await user.comparePassword(password);
+    console.log('Password match result:', isMatch);
+
     if (!isMatch) {
+      await addDelay();
       res.status(401).json({
         success: false,
         message: 'Invalid credentials',
@@ -333,7 +366,6 @@ export const sendPhoneVerificationOTP = async (
   }
 };
 
-// Initiate phone verification
 export const initiatePhoneVerification = async (
   req: AuthRequest,
   res: Response
@@ -343,7 +375,7 @@ export const initiatePhoneVerification = async (
     if (!currentUser) return;
 
     const userId = new mongoose.Types.ObjectId(currentUser._id);
-    const { phoneNumber } = req.body;
+    const phoneNumber = sanitizeInput(req.body.phoneNumber);
 
     if (!phoneNumber) {
       res.status(400).json({
@@ -401,7 +433,7 @@ export const verifyPhoneWithOTP = async (
     if (!user) return;
 
     const userId = user._id;
-    const { otp } = req.body;
+    const otp = sanitizeInput(req.body.otp);
 
     if (!otp) {
       res.status(400).json({
@@ -411,7 +443,6 @@ export const verifyPhoneWithOTP = async (
       return;
     }
 
-    // Find the OTP record
     const otpRecord = await OtpVerification.findOne({
       user: userId,
       type: 'phone',
@@ -419,6 +450,7 @@ export const verifyPhoneWithOTP = async (
     });
 
     if (!otpRecord) {
+      await addDelay();
       res.status(400).json({
         success: false,
         message: 'Invalid OTP',
@@ -426,7 +458,6 @@ export const verifyPhoneWithOTP = async (
       return;
     }
 
-    // Check if OTP is expired
     if (otpRecord.expiresAt < new Date()) {
       await OtpVerification.deleteOne({ _id: otpRecord._id });
       res.status(400).json({
@@ -436,10 +467,8 @@ export const verifyPhoneWithOTP = async (
       return;
     }
 
-    // Update user's phone verification status
     await User.findByIdAndUpdate(userId, { isPhoneVerified: true });
 
-    // Delete used OTP
     await OtpVerification.deleteOne({ _id: otpRecord._id });
 
     res.status(200).json({
@@ -464,7 +493,9 @@ export const uploadIdVerification = async (
     if (!user) return;
 
     const userId = user._id;
-    const { idType, idNumber, idImage } = req.body;
+    const idType = sanitizeInput(req.body.idType);
+    const idNumber = sanitizeInput(req.body.idNumber);
+    const idImage = req.body.idImage;
 
     if (!idType || !idNumber || !idImage) {
       res.status(400).json({
@@ -561,7 +592,7 @@ export const requestPasswordReset = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { email } = req.body;
+    const email = sanitizeInput(req.body.email?.toLowerCase());
 
     if (!email) {
       res.status(400).json({
@@ -571,12 +602,12 @@ export const requestPasswordReset = async (
       return;
     }
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') },
+    });
 
-    // Standardize response time to prevent timing attacks
     if (!user) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await addDelay();
 
       res.status(200).json({
         success: true,
@@ -586,10 +617,8 @@ export const requestPasswordReset = async (
       return;
     }
 
-    // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
 
-    // Hash token before saving to database
     const hashedToken = crypto
       .createHash('sha256')
       .update(resetToken)
@@ -637,13 +666,13 @@ export const validateResetToken = async (
     // Hash the token from the URL
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    // Find user with matching token and valid expiry
     const user = await User.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpire: { $gt: Date.now() },
     });
 
     if (!user) {
+      await addDelay();
       res.status(400).json({
         success: false,
         message: 'Invalid or expired reset token',
@@ -672,7 +701,8 @@ export const resetPassword = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { token, password } = req.body;
+    const { token } = req.body;
+    const password = req.body.password;
 
     if (!token || !password) {
       res.status(400).json({
@@ -683,10 +713,11 @@ export const resetPassword = async (
     }
 
     // Validate password strength
-    if (password.length < 8) {
+    const passwordCheck = isStrongPassword(password);
+    if (!passwordCheck.valid) {
       res.status(400).json({
         success: false,
-        message: 'Password must be at least 8 characters long',
+        message: passwordCheck.message,
       });
       return;
     }
@@ -701,6 +732,7 @@ export const resetPassword = async (
     });
 
     if (!user) {
+      await addDelay();
       res.status(400).json({
         success: false,
         message: 'Invalid or expired reset token',
@@ -708,7 +740,6 @@ export const resetPassword = async (
       return;
     }
 
-    // Update password and clear reset token fields
     user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -754,24 +785,11 @@ export const updatePassword = async (
     }
 
     // Validate password strength
-    if (newPassword.length < 8) {
+    const passwordCheck = isStrongPassword(newPassword);
+    if (!passwordCheck.valid) {
       res.status(400).json({
         success: false,
-        message: 'New password must be at least 8 characters long',
-      });
-      return;
-    }
-
-    // Regex for password requirements
-    const hasUpperCase = /[A-Z]/.test(newPassword);
-    const hasNumber = /[0-9]/.test(newPassword);
-    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-
-    if (!hasUpperCase || !hasNumber || !hasSpecial) {
-      res.status(400).json({
-        success: false,
-        message:
-          'Password must contain at least one uppercase letter, one number, and one special character',
+        message: passwordCheck.message,
       });
       return;
     }
@@ -798,6 +816,8 @@ export const updatePassword = async (
     // Verify current password
     const isMatch = await userWithPassword.comparePassword(currentPassword);
     if (!isMatch) {
+      // Add delay to prevent timing attacks
+      await addDelay();
       res.status(401).json({
         success: false,
         message: 'Current password is incorrect',
