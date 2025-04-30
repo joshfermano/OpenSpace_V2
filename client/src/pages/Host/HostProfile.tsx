@@ -131,8 +131,7 @@ const HostProfile = () => {
 
         setHost(hostResponse.data);
 
-        // Fetch rooms by host ID
-        const roomsResponse = await roomApi.getRooms({ hostId });
+        const roomsResponse = await roomApi.getRoomsByHost(hostId);
 
         if (!roomsResponse.success) {
           throw new Error(

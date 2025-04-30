@@ -19,6 +19,32 @@ export const roomApi = {
     }
   },
 
+  getRoomsByHost: async (hostId: string) => {
+    try {
+      console.log(`Fetching rooms for host ${hostId}...`);
+      const response = await fetchWithAuth(`/api/rooms/host/${hostId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(
+          `Error fetching host rooms: ${response.status}`,
+          errorData
+        );
+        return {
+          success: false,
+          message: errorData.message || 'Failed to fetch host rooms',
+        };
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Error fetching rooms for host ${hostId}:`, error);
+      return {
+        success: false,
+        message: 'Network error while fetching host rooms',
+      };
+    }
+  },
+
   getAvailabilityForDateRange: async (
     roomId: string,
     startDate: Date,
@@ -28,7 +54,6 @@ export const roomApi = {
       const formattedStart = startDate.toISOString().split('T')[0];
       const formattedEnd = endDate.toISOString().split('T')[0];
 
-      // Add cache busting to avoid stale data
       const cacheBuster = Date.now();
 
       console.log(
@@ -66,9 +91,7 @@ export const roomApi = {
       const data = await response.json();
       console.log('[API] Raw response from availability API:', data);
 
-      // Process and validate the response data
       if (data.success && data.data) {
-        // Ensure roomId is included in the response data for client verification
         data.data.roomId = roomId;
 
         // Make sure all booking entries have roomId set

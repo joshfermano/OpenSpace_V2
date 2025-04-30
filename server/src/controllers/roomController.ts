@@ -423,8 +423,11 @@ export const getRoomsByHost = async (
     // Filter for published and approved rooms only (for regular users)
     const filter: Record<string, any> = { host: hostId };
 
-    // If not the host or admin, only show published and approved rooms
-    if (req.user.id !== hostId && req.user.role !== 'admin') {
+    const isAuthenticated = req.user !== undefined;
+    const isOwner = isAuthenticated && req.user.id === hostId;
+    const isAdmin = isAuthenticated && req.user.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
       filter.isPublished = true;
       filter.status = 'approved';
     }
@@ -684,7 +687,6 @@ export const getRoomAvailability = async (
     const start = new Date(startDate as string);
     const end = new Date(endDate as string);
 
-    // Set hours to midnight for consistent comparison
     start.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
 
@@ -696,7 +698,6 @@ export const getRoomAvailability = async (
       return;
     }
 
-    // Check if room exists
     const room = await Room.findById(roomId);
     if (!room) {
       res.status(404).json({
@@ -721,8 +722,6 @@ export const getRoomAvailability = async (
       }
     }
 
-    // Improved booking query to find all bookings that overlap with the date range
-    // Only exclude cancelled and rejected bookings
     const existingBookings = await Booking.find({
       room: roomId,
       bookingStatus: { $nin: ['cancelled', 'rejected'] },

@@ -44,10 +44,12 @@ router.get('/', roomController.getRooms);
 router.get('/search', roomController.searchRooms);
 router.get('/:roomId', roomController.getRoomById);
 router.get('/:roomId/availability', roomController.getRoomAvailability);
-router.get('/host/:hostId', roomController.getRoomsByHost);
 
 // Protected routes - need authentication
 router.use(protect);
+
+// Host/user specific routes
+router.get('/host/:hostId', roomController.getRoomsByHost);
 
 // Host room management
 router.post('/', roomController.createRoom);

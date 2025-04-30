@@ -5,6 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
+    "nodemon": "nodemon src/server.ts",
     "dev": "ts-node-dev --respawn --transpile-only -P tsconfig.dev.json src/server.ts",
     "Dev": "npx ts-node --transpile-only -P tsconfig.dev.json src/server.ts",
     "build": "node src/types/build-without-types.js",
@@ -48,6 +49,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.15.3",
+    "@types/nodemon": "^1.19.6",
     "@types/uuid": "^10.0.0",
     "cross-env": "^7.0.3",
     "glob": "^11.0.1",
