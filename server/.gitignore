@@ -6,6 +6,9 @@
 .env.test
 .env.production
 
+# Node Modules
+node_modules/
+
 # images - using more comprehensive patterns
 **/*.png
 **/*.jpg
