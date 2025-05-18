@@ -76,8 +76,8 @@ const corsOptions = {
     const allowedOrigins = [
       'https://openspace-reserve.vercel.app',
       'https://openspace-v2.vercel.app',
-      'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app/',
-      'https://openspace-reserve-fyaghgx05-josh-khovick-fermanos-projects.vercel.app/',
+      'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app',
+      'https://openspace-reserve-fyaghgx05-josh-khovick-fermanos-projects.vercel.app',
       'https://openspace-api.onrender.com',
     ];
 
@@ -100,8 +100,20 @@ const corsOptions = {
       return;
     }
 
-    // Check if origin is allowed
-    if (allowedOrigins.includes(origin)) {
+    // Remove trailing slashes for comparison
+    const normalizedOrigin = origin.endsWith('/')
+      ? origin.slice(0, -1)
+      : origin;
+
+    // Check if normalized origin is allowed
+    if (
+      allowedOrigins.some((allowedOrigin) => {
+        const normalized = allowedOrigin.endsWith('/')
+          ? allowedOrigin.slice(0, -1)
+          : allowedOrigin;
+        return normalized === normalizedOrigin;
+      })
+    ) {
       callback(null, true);
     } else {
       console.error(`Origin ${origin} not allowed by CORS`);
