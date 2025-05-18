@@ -45,6 +45,11 @@ const upload = multer({
 
 const router = express.Router();
 
+// Public routes (accessible without authentication)
+// Get user (for viewing host profiles publicly)
+router.get('/:userId', userController.getUserById);
+
+// Protected routes (require authentication)
 router.use(protect);
 
 // Profile management
@@ -68,8 +73,5 @@ router.put('/notifications/:id/read', userController.markNotificationAsRead);
 router.get('/saved-rooms', userController.getSavedRooms);
 router.post('/save-room', userController.saveRoom);
 router.delete('/unsave-rooms/:roomId', userController.unsaveRoom);
-
-// Get user (for viewing other users' profiles)
-router.get('/:userId', userController.getUserById);
 
 export default router;

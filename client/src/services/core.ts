@@ -14,6 +14,7 @@ export const fetchPublic = async (
 ) => {
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
+    Origin: window.location.origin,
   };
 
   const config: RequestInit = {
@@ -22,9 +23,12 @@ export const fetchPublic = async (
       ...defaultHeaders,
       ...(options.headers || {}),
     },
+    credentials: 'same-origin',
+    mode: 'cors',
   };
 
   try {
+    console.log(`Making public request to: ${API_URL}${endpoint}`);
     const response = await fetch(`${API_URL}${endpoint}`, config);
     return response;
   } catch (error) {
@@ -39,6 +43,7 @@ export const fetchWithAuth = async (
 ) => {
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
+    Origin: window.location.origin,
   };
 
   const config: RequestInit = {
@@ -48,9 +53,11 @@ export const fetchWithAuth = async (
       ...(options.headers || {}),
     },
     credentials: 'include',
+    mode: 'cors',
   };
 
   try {
+    console.log(`Making authenticated request to: ${API_URL}${endpoint}`);
     const response = await fetch(`${API_URL}${endpoint}`, config);
 
     if (response.status === 401) {

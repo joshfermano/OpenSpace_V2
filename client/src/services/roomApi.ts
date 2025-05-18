@@ -22,7 +22,7 @@ export const roomApi = {
   getRoomsByHost: async (hostId: string) => {
     try {
       console.log(`Fetching rooms for host ${hostId}...`);
-      const response = await fetchWithAuth(`/api/rooms/host/${hostId}`);
+      const response = await fetchPublic(`/api/rooms/host/${hostId}`);
       if (!response.ok) {
         const errorData = await response.json();
         console.error(

@@ -42,14 +42,12 @@ const router = express.Router();
 // Public room routes
 router.get('/', roomController.getRooms);
 router.get('/search', roomController.searchRooms);
+router.get('/host/:hostId', roomController.getRoomsByHost);
 router.get('/:roomId', roomController.getRoomById);
 router.get('/:roomId/availability', roomController.getRoomAvailability);
 
 // Protected routes - need authentication
 router.use(protect);
-
-// Host/user specific routes
-router.get('/host/:hostId', roomController.getRoomsByHost);
 
 // Host room management
 router.post('/', roomController.createRoom);

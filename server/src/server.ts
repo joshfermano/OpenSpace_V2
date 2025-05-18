@@ -67,21 +67,27 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
+// Fix: Update CORS configuration to handle client origins properly
 const corsOptions = {
   origin: (
     origin: string | undefined,
     callback: (err: Error | null, allow?: boolean) => void
   ) => {
-    const allowedOrigins =
-      process.env.NODE_ENV === 'production'
-        ? [
-            /\.vercel\.app$/,
-            'https://openspace-reserve.vercel.app',
-            'https://openspace-v2.vercel.app',
-            'https://openspace-api.onrender.com',
-            process.env.CLIENT_URL,
-          ].filter(Boolean)
-        : ['http://localhost:5173', 'http://localhost:3000'];
+    const allowedOrigins = [
+      'https://openspace-reserve.vercel.app',
+      'https://openspace-v2.vercel.app',
+      'https://openspace-api.onrender.com',
+    ];
+
+    // Add development origins
+    if (process.env.NODE_ENV !== 'production') {
+      allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
+    }
+
+    // Add CLIENT_URL if defined in environment
+    if (process.env.CLIENT_URL) {
+      allowedOrigins.push(process.env.CLIENT_URL);
+    }
 
     console.log('Request origin:', origin);
     console.log('Allowed origins:', allowedOrigins);
@@ -92,16 +98,8 @@ const corsOptions = {
       return;
     }
 
-    const originIsAllowed = allowedOrigins.some((allowedOrigin) => {
-      if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
-      } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-
-    if (originIsAllowed) {
+    // Check if origin is allowed
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.error(`Origin ${origin} not allowed by CORS`);
@@ -117,12 +115,14 @@ const corsOptions = {
     'Cache-Control',
     'Pragma',
     'Origin',
+    'Accept',
   ],
   exposedHeaders: ['Set-Cookie'],
   preflightContinue: false,
   optionsSuccessStatus: 204,
 };
 
+// Apply CORS first before other middleware
 app.use(cors(corsOptions));
 app.use(cookieParser());
 
@@ -132,19 +132,17 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(express.static(path.join(__dirname, '../uploads')));
 
+// Configure cookies for cross-origin requests
 app.use((req: Request, res: Response, next: NextFunction) => {
   const originalCookie = res.cookie.bind(res);
 
   res.cookie = function (name: string, val: any, options?: CookieOptions) {
     const cookieOptions: CookieOptions = {
-      sameSite:
-        process.env.NODE_ENV === 'production'
-          ? ('none' as const)
-          : ('lax' as const),
-      secure: process.env.NODE_ENV === 'production',
-      httpOnly: true,
+      sameSite: 'none', // Required for cross-site cookies
+      secure: true, // Cookies only sent over HTTPS
+      httpOnly: true, // Cookies not accessible via JavaScript
       path: '/',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       ...options,
     };
 

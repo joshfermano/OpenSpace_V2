@@ -75,7 +75,11 @@ export const getUserById = async (
       return;
     }
 
-    if (req.user.role !== 'admin' && req.user.id !== userId) {
+    const isAuthenticated = !!req.user;
+    const isAdmin = isAuthenticated && req.user.role === 'admin';
+    const isOwnProfile = isAuthenticated && req.user.id === userId;
+
+    if (!isAdmin && !isOwnProfile) {
       const publicUser = {
         _id: user._id,
         firstName: user.firstName,

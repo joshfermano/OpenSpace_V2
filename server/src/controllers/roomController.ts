@@ -423,10 +423,13 @@ export const getRoomsByHost = async (
     // Filter for published and approved rooms only (for regular users)
     const filter: Record<string, any> = { host: hostId };
 
-    const isAuthenticated = req.user !== undefined;
+    // Check if user is authenticated
+    const isAuthenticated = !!req.user;
     const isOwner = isAuthenticated && req.user.id === hostId;
     const isAdmin = isAuthenticated && req.user.role === 'admin';
 
+    // For non-authenticated users or users who are not the owner/admin,
+    // only show published and approved rooms
     if (!isOwner && !isAdmin) {
       filter.isPublished = true;
       filter.status = 'approved';

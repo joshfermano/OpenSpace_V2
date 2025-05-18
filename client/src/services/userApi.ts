@@ -1,4 +1,4 @@
-import { API_URL, fetchWithAuth } from './core';
+import { API_URL, fetchWithAuth, fetchPublic } from './core';
 interface UpdateProfileData {
   firstName: string;
   lastName: string;
@@ -45,7 +45,7 @@ export const userApi = {
 
   getUserById: async (userId: string) => {
     try {
-      const response = await fetchWithAuth(`/api/users/${userId}`);
+      const response = await fetchPublic(`/api/users/${userId}`);
       const data = await response.json();
       return data;
     } catch (error) {
