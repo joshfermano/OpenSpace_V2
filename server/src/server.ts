@@ -76,6 +76,8 @@ const corsOptions = {
     const allowedOrigins = [
       'https://openspace-reserve.vercel.app',
       'https://openspace-v2.vercel.app',
+      'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app/',
+      'https://openspace-reserve-fyaghgx05-josh-khovick-fermanos-projects.vercel.app/',
       'https://openspace-api.onrender.com',
     ];
 
