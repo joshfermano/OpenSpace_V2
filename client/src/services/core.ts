@@ -1,9 +1,9 @@
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = import.meta.env.MODE !== 'production';
 
 // Use VITE_API_URL from environment, or provide explicit production and development defaults
-export const API_URL = isDev
-  ? import.meta.env.VITE_API_URL || 'http://localhost:5000'
-  : import.meta.env.VITE_API_URL || 'https://openspace-api.onrender.com';
+export const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (isDev ? 'http://localhost:5000' : 'https://openspace-api.onrender.com');
 
 console.log(`Environment: ${isDev ? 'development' : 'production'}`);
 console.log(`Using API URL: ${API_URL}`);
@@ -24,7 +24,6 @@ export const fetchPublic = async (
       ...defaultHeaders,
       ...(options.headers || {}),
     },
-    // Use credentials 'include' instead of 'same-origin' to ensure cookies work cross-origin
     credentials: 'include',
     mode: 'cors',
   };
