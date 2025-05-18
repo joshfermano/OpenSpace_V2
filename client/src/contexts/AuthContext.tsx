@@ -96,6 +96,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const checkAuthOnMount = async () => {
       console.log('Checking authentication on component mount');
       console.log('Current document.cookie:', document.cookie);
+
+      // Add debug information for production debugging
+      console.log('Current environment:', process.env.NODE_ENV);
+      console.log('Current API URL:', import.meta.env.VITE_API_URL);
+      console.log('Current client origin:', window.location.origin);
+
       await checkAuth();
       console.log('Initial auth check completed');
     };
