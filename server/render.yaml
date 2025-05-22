@@ -2,7 +2,7 @@ services:
   - type: web
     name: openspace-server
     runtime: node
-    buildCommand: npm run render-build
+    buildCommand: bash render-build.sh
     startCommand: npm start
     envVars:
       - key: NODE_ENV

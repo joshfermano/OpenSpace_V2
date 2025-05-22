@@ -452,8 +452,8 @@ export const processWithdrawal = async (
     }).sort({ availableDate: 1 });
 
     let remainingAmount = amount;
-    const processedEarningIds = [];
-    let partialEarningId = null;
+    const processedEarningIds: mongoose.Types.ObjectId[] = [];
+    let partialEarningId: mongoose.Types.ObjectId | null = null;
     let partialAmount = 0;
 
     // Process full earnings
@@ -462,11 +462,11 @@ export const processWithdrawal = async (
 
       if (earning.hostPayout <= remainingAmount) {
         // This earning can be fully processed
-        processedEarningIds.push(earning._id);
+        processedEarningIds.push(earning._id as mongoose.Types.ObjectId);
         remainingAmount -= earning.hostPayout;
       } else {
         // Need to partially process this earning
-        partialEarningId = earning._id;
+        partialEarningId = earning._id as mongoose.Types.ObjectId;
         partialAmount = remainingAmount;
         remainingAmount = 0;
         break;
