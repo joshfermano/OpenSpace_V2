@@ -58,10 +58,10 @@ const UserDashboard = () => {
     'bookings' | 'listings' | 'favorites'
   >('bookings');
   const [loading, setLoading] = useState(true);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [userBookingsData, setUserBookingsData] = useState<Booking[]>([]);
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchUserDataAndBookings = async () => {
       try {
         setLoading(true);
         if (!user) {
@@ -70,9 +70,10 @@ const UserDashboard = () => {
         }
 
         const dashboardResponse = await userApi.getUserDashboard();
+        let initialUserData: ExtendedUser;
 
         if (dashboardResponse.success && dashboardResponse.data) {
-          const combinedUserData: ExtendedUser = {
+          initialUserData = {
             ...user,
             ...dashboardResponse.data.user,
             phoneNumber:
@@ -83,25 +84,28 @@ const UserDashboard = () => {
               dashboardResponse.data.user.createdAt ||
               user?.createdAt ||
               new Date().toISOString(),
+            bookings: dashboardResponse.data.user.bookings || [],
+            favorites: dashboardResponse.data.user.favorites || [],
           };
-
-          setUserData(combinedUserData);
         } else {
-          setUserData({
+          initialUserData = {
             ...(user as ExtendedUser),
             phoneNumber: user?.phoneNumber || '',
             dateJoined: user?.createdAt || new Date().toISOString(),
-          });
+            bookings: [],
+            favorites: [],
+          };
         }
 
-        // Fetch user bookings
+        setUserData(initialUserData);
+
         const bookingsResponse = await bookingApi.getUserBookings();
         console.log('Bookings response:', bookingsResponse);
+        let fetchedBookings: Booking[] = [];
 
         if (bookingsResponse.success && Array.isArray(bookingsResponse.data)) {
-          // Map the API response to match our Booking interface
-          const formattedBookings = bookingsResponse.data
-            .filter((booking: any) => booking && booking.room) // Filter out null bookings or bookings without room
+          fetchedBookings = bookingsResponse.data
+            .filter((booking: any) => booking && booking.room)
             .map((booking: any) => ({
               id: booking._id || '',
               roomId: booking.room?._id || '',
@@ -113,28 +117,47 @@ const UserDashboard = () => {
               paymentStatus: booking.paymentStatus || 'unpaid',
               status: booking.bookingStatus || 'pending',
             }));
-          console.log('Formatted bookings:', formattedBookings);
-          setBookings(formattedBookings);
+          console.log('Formatted bookings:', fetchedBookings);
+          setUserBookingsData(fetchedBookings);
+
+          setUserData((prevUserData) =>
+            prevUserData
+              ? {
+                  ...prevUserData,
+                  bookings: fetchedBookings,
+                }
+              : null
+          );
         } else {
           console.warn('No bookings data or invalid format:', bookingsResponse);
-          setBookings([]);
+          setUserBookingsData([]);
+          setUserData((prevUserData) =>
+            prevUserData
+              ? {
+                  ...prevUserData,
+                  bookings: [],
+                }
+              : null
+          );
         }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        if (user) {
+        if (user && !userData) {
           setUserData({
             ...(user as ExtendedUser),
             phoneNumber: user?.phoneNumber || '',
             dateJoined: user?.createdAt || new Date().toISOString(),
+            bookings: [],
+            favorites: [],
           });
         }
-        setBookings([]);
+        setUserBookingsData([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserData();
+    fetchUserDataAndBookings();
   }, [user, navigate, refreshUser]);
 
   if (loading) {
@@ -164,10 +187,8 @@ const UserDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-darkBlue p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* User Profile Header */}
-        {userData && <UserHeader userData={userData} />}
+        <UserHeader userData={userData} />
 
-        {/* Tabs */}
         <div className="flex mt-8 mb-8 border-b border-gray-200 dark:border-gray-700">
           <button
             className={`px-4 py-2 font-medium text-sm ${
@@ -206,8 +227,9 @@ const UserDashboard = () => {
           </button>
         </div>
 
-        {/* Content */}
-        {activeTab === 'bookings' && <UserBookings bookings={bookings} />}
+        {activeTab === 'bookings' && (
+          <UserBookings bookings={userBookingsData} />
+        )}
 
         {activeTab === 'listings' && <UserListings userData={userData} />}
 

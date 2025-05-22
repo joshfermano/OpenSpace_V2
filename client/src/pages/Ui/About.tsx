@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import josh from '../../assets/profile_pic/josh.jpg';
+import dennis from '../../assets/profile_pic/dennis.jpg';
 import yawe from '../../assets/profile_pic/yawe.jpg';
 import inaki from '../../assets/profile_pic/inaki.jpg';
 import earl from '../../assets/profile_pic/earl.jpg';
@@ -46,7 +47,7 @@ const About = () => {
       role: 'Web Developer',
       description: 'Ensuring smooth operations and timely deliveries',
       isFounder: false,
-      imageUrl: { josh },
+      imageUrl: { dennis },
       github: 'https://github.com/',
       linkedin: 'https://linkedin.com/in/',
       website: 'https://example.com/',
@@ -203,6 +204,8 @@ const About = () => {
                             ? member.imageUrl.inaki
                             : member.name.includes('Earl')
                             ? member.imageUrl.earl
+                            : member.name.includes('Dennis')
+                            ? member.imageUrl.dennis
                             : member.imageUrl.josh
                         }
                         alt={member.name}

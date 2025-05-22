@@ -64,6 +64,9 @@ const userSchema = new mongoose_1.Schema({
         type: Boolean,
         default: true,
     },
+    banReason: {
+        type: String,
+    },
     resetPasswordToken: {
         type: String,
         select: false, // Don't return this field in queries by default

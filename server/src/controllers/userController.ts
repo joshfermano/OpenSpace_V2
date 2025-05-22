@@ -76,8 +76,8 @@ export const getUserById = async (
     }
 
     const isAuthenticated = !!req.user;
-    const isAdmin = isAuthenticated && req.user.role === 'admin';
-    const isOwnProfile = isAuthenticated && req.user.id === userId;
+    const isAdmin = isAuthenticated && req.user && req.user.role === 'admin';
+    const isOwnProfile = isAuthenticated && req.user && req.user.id === userId;
 
     if (!isAdmin && !isOwnProfile) {
       const publicUser = {
@@ -184,7 +184,9 @@ export const changePassword = async (
 ): Promise<void> => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
+    const currentUser = getUserFromRequest(req, res);
+    if (!currentUser) return;
+    const userId = currentUser._id;
 
     if (!currentPassword || !newPassword) {
       res.status(400).json({
@@ -237,7 +239,9 @@ export const saveRoom = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.user.id;
+    const currentUser = getUserFromRequest(req, res);
+    if (!currentUser) return;
+    const userId = currentUser._id;
     const { roomId } = req.body;
 
     if (!roomId) {
@@ -292,7 +296,9 @@ export const unsaveRoom = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.user.id;
+    const currentUser = getUserFromRequest(req, res);
+    if (!currentUser) return;
+    const userId = currentUser._id;
     const { roomId } = req.params;
 
     if (!roomId) {
@@ -335,7 +341,9 @@ export const getSavedRooms = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.user.id;
+    const currentUser = getUserFromRequest(req, res);
+    if (!currentUser) return;
+    const userId = currentUser._id;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -373,7 +381,9 @@ export const getDashboardData = async (
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.user.id;
+    const currentUser = getUserFromRequest(req, res);
+    if (!currentUser) return;
+    const userId = currentUser._id;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -533,7 +543,9 @@ export const uploadProfileImage = async (
       return;
     }
 
-    const userId = req.user.id;
+    const currentUser = getUserFromRequest(req, res);
+    if (!currentUser) return;
+    const userId = currentUser._id;
     const user = await User.findById(userId);
 
     if (!user) {

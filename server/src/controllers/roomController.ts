@@ -16,6 +16,13 @@ export const createRoom = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if user is a host
@@ -221,8 +228,9 @@ export const getRoomById = async (
 
     // Check if the user is authenticated
     const isAuthenticated = req.user && req.user.id;
-    const isAdmin = isAuthenticated && req.user.role === 'admin';
-    const isOwner = isAuthenticated && room.host._id.toString() === req.user.id;
+    const isAdmin = isAuthenticated && req.user && req.user.role === 'admin';
+    const isOwner =
+      isAuthenticated && req.user && room.host._id.toString() === req.user.id;
 
     if (!room.isPublished || room.status !== 'approved') {
       if (!isAuthenticated || (!isAdmin && !isOwner)) {
@@ -254,6 +262,13 @@ export const updateRoom = async (
 ): Promise<void> => {
   try {
     const { roomId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if room exists
@@ -346,6 +361,13 @@ export const deleteRoom = async (
 ): Promise<void> => {
   try {
     const { roomId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if room exists
@@ -425,8 +447,8 @@ export const getRoomsByHost = async (
 
     // Check if user is authenticated
     const isAuthenticated = !!req.user;
-    const isOwner = isAuthenticated && req.user.id === hostId;
-    const isAdmin = isAuthenticated && req.user.role === 'admin';
+    const isOwner = isAuthenticated && req.user && req.user.id === hostId;
+    const isAdmin = isAuthenticated && req.user && req.user.role === 'admin';
 
     // For non-authenticated users or users who are not the owner/admin,
     // only show published and approved rooms
@@ -465,6 +487,13 @@ export const getMyRooms = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if user is a host
@@ -571,8 +600,7 @@ export const getPendingRoomApprovals = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
+    if (!req.user || req.user.role !== 'admin') {
       res.status(403).json({
         success: false,
         message: 'Not authorized to access this resource',
@@ -616,8 +644,7 @@ export const approveRejectRoom = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
+    if (!req.user || req.user.role !== 'admin') {
       res.status(403).json({
         success: false,
         message: 'Not authorized to approve or reject rooms',
@@ -710,11 +737,18 @@ export const getRoomAvailability = async (
       return;
     }
 
+    // Cast req to AuthRequest to access user safely if needed
+    const authReq = req as AuthRequest;
+
     // Check if room is published and accessible
     if (!room.isPublished || room.status !== 'approved') {
-      const isAuthenticated = req.user && req.user.id;
-      const isAdmin = isAuthenticated && req.user.role === 'admin';
-      const isOwner = isAuthenticated && room.host.toString() === req.user.id;
+      const isAuthenticated = authReq.user && authReq.user.id;
+      const isAdmin =
+        isAuthenticated && authReq.user && authReq.user.role === 'admin';
+      const isOwner =
+        isAuthenticated &&
+        authReq.user &&
+        room.host.toString() === authReq.user.id;
 
       if (!isAuthenticated || (!isAdmin && !isOwner)) {
         res.status(403).json({
@@ -875,6 +909,12 @@ export const updateRoomAvailability = async (
     const { roomId } = req.params;
     const { startDate, endDate, isAlwaysAvailable, unavailableDates } =
       req.body;
+    if (!req.user) {
+      res
+        .status(401)
+        .json({ success: false, message: 'User not authenticated' });
+      return;
+    }
 
     // Check if room exists
     const room = await Room.findById(roomId);
@@ -932,6 +972,12 @@ export const uploadRoomImages = async (
   try {
     const { roomId } = req.params;
     const files = req.files as Express.Multer.File[];
+    if (!req.user) {
+      res
+        .status(401)
+        .json({ success: false, message: 'User not authenticated' });
+      return;
+    }
 
     if (!files || files.length === 0) {
       res.status(400).json({
@@ -1009,6 +1055,12 @@ export const deleteRoomImage = async (
 ): Promise<void> => {
   try {
     const { roomId, imageId } = req.params;
+    if (!req.user) {
+      res
+        .status(401)
+        .json({ success: false, message: 'User not authenticated' });
+      return;
+    }
 
     // Find room
     const room = await Room.findById(roomId);

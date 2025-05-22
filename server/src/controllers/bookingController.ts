@@ -156,6 +156,13 @@ export const createBooking = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const {
       roomId,
@@ -170,6 +177,28 @@ export const createBooking = async (
       paymentMethod,
     } = req.body;
 
+    // Fetch the full user document to check verification status
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Security check for 'Pay at Property'
+    if (paymentMethod === 'property') {
+      if (user.role !== 'admin' && user.verificationLevel !== 'verified') {
+        res.status(403).json({
+          success: false,
+          message:
+            "Your ID verification must be approved to use 'Pay at Property'. Please upload your ID and wait for approval or choose another payment method.",
+        });
+        return;
+      }
+    }
+
     // Convert times to 24-hour format for storage
     const normalizedCheckInTime = convertTo24HourFormat(
       checkInTime || '2:00 PM'
@@ -177,6 +206,32 @@ export const createBooking = async (
     const normalizedCheckOutTime = convertTo24HourFormat(
       checkOutTime || '12:00 PM'
     );
+
+    // --- START NEW VALIDATION ---
+    // Combine check-in date and time
+    const [hours, minutes] = normalizedCheckInTime.split(':').map(Number);
+    const bookingDateTime = new Date(checkIn); // checkIn should be in YYYY-MM-DD format from client
+
+    // Important: Ensure 'checkIn' from client is treated as local date, then set time
+    // If checkIn is already a Date object from client, this needs to be handled carefully
+    // Assuming checkIn is a string like '2024-05-22'
+    const year = bookingDateTime.getFullYear();
+    const month = bookingDateTime.getMonth(); // 0-indexed
+    const day = bookingDateTime.getDate();
+
+    // Create the final booking date and time object, treating it as local time
+    const finalBookingDateTime = new Date(year, month, day, hours, minutes);
+
+    const currentDateTime = new Date();
+
+    if (finalBookingDateTime < currentDateTime) {
+      res.status(400).json({
+        success: false,
+        message: 'Booking date and time cannot be in the past.',
+      });
+      return;
+    }
+    // --- END NEW VALIDATION ---
 
     // Check if room exists
     const room = await Room.findById(roomId);
@@ -373,6 +428,13 @@ export const processPayment = async (
     const { bookingId, paymentMethod, cardDetails, mobilePaymentDetails } =
       req.body;
 
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Validate booking ID
@@ -645,6 +707,13 @@ export const cancelBooking = async (
   try {
     const { bookingId } = req.params;
     const { reason } = req.body;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if booking exists
@@ -767,6 +836,13 @@ export const getBookingById = async (
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     const booking = await Booking.findById(bookingId)
@@ -814,6 +890,13 @@ export const getUserBookings = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { status } = req.query;
 
@@ -858,6 +941,13 @@ export const getHostBookings = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { status } = req.query;
 
@@ -912,6 +1002,13 @@ export const canReviewRoom = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { roomId } = req.params;
 
@@ -961,6 +1058,13 @@ export const confirmBooking = async (
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Find the booking
@@ -1016,6 +1120,13 @@ export const completeBooking = async (
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Find the booking
@@ -1091,6 +1202,13 @@ export const rejectBooking = async (
   try {
     const { bookingId } = req.params;
     const { reason } = req.body;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if booking exists
@@ -1155,6 +1273,13 @@ export const markPaymentReceived = async (
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Find the booking
@@ -1224,6 +1349,13 @@ export const canCancelBooking = async (
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Find the booking
@@ -1315,6 +1447,13 @@ export const sendReceiptEmail = async (
 ): Promise<void> => {
   try {
     const { bookingId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { recipientEmail, receiptDetails } = req.body;
 
@@ -1359,9 +1498,12 @@ export const sendReceiptEmail = async (
       const user = booking.user as any; // Cast to 'any' to access firstName and lastName
 
       receipt = {
-        referenceNumber: booking._id.toString().slice(-8).toUpperCase(),
+        referenceNumber: (booking._id as mongoose.Types.ObjectId)
+          .toString()
+          .slice(-8)
+          .toUpperCase(),
         bookingDetails: {
-          bookingId: booking._id,
+          bookingId: booking._id as mongoose.Types.ObjectId,
           propertyName: (booking.room as any).title,
           checkInDate: checkInDate.toLocaleDateString('en-US', {
             month: 'long',

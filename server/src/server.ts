@@ -12,6 +12,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import * as swaggerUi from 'swagger-ui-express';
+import { swaggerDocument } from './swagger';
 import {
   sanitizeRequest,
   globalErrorHandler,
@@ -36,38 +38,73 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security middlewares
-// Set security HTTP headers
-app.use(helmet());
+// Set security HTTP headers with enhanced CSP
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", 'https://vercel.live'],
+        connectSrc: [
+          "'self'",
+          'https://*.supabase.co',
+          'https://openspace-api.onrender.com',
+        ],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'blob:',
+          'https://*.supabase.co',
+          'https://*.cloudfront.net',
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
 
-// Apply global request sanitization
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  res.setHeader('X-Frame-Options', 'DENY');
+
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
+  next();
+});
+
 app.use(sanitizeRequest);
 
-// Rate limiting middleware
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again after 15 minutes',
 });
 
-// Apply rate limiting to all routes
 app.use('/api/', limiter);
 
-// More strict rate limiting for authentication routes
 const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // limit each IP to 10 login attempts per hour
+  windowMs: 60 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many login attempts, please try again after an hour',
 });
 
-// Apply auth rate limiting specifically to authentication routes
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
 
-// Fix: Update CORS configuration to handle client origins properly
 const corsOptions = {
   origin: (
     origin: string | undefined,
@@ -81,12 +118,10 @@ const corsOptions = {
       'https://openspace-api.onrender.com',
     ];
 
-    // Add development origins
     if (process.env.NODE_ENV !== 'production') {
       allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
     }
 
-    // Add CLIENT_URL if defined in environment
     if (process.env.CLIENT_URL) {
       allowedOrigins.push(process.env.CLIENT_URL);
     }
@@ -94,18 +129,15 @@ const corsOptions = {
     console.log('Request origin:', origin);
     console.log('Allowed origins:', allowedOrigins);
 
-    // Allow requests with no origin (like mobile apps, curl, etc)
     if (!origin) {
       callback(null, true);
       return;
     }
 
-    // Remove trailing slashes for comparison
     const normalizedOrigin = origin.endsWith('/')
       ? origin.slice(0, -1)
       : origin;
 
-    // Check if normalized origin is allowed
     if (
       allowedOrigins.some((allowedOrigin) => {
         const normalized = allowedOrigin.endsWith('/')
@@ -136,27 +168,25 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// Apply CORS first before other middleware
 app.use(cors(corsOptions));
 app.use(cookieParser());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../uploads')));
 
-// Configure cookies for cross-origin requests
 app.use((req: Request, res: Response, next: NextFunction) => {
   const originalCookie = res.cookie.bind(res);
 
   res.cookie = function (name: string, val: any, options?: CookieOptions) {
     const cookieOptions: CookieOptions = {
-      sameSite: 'none', // Required for cross-site cookies
-      secure: true, // Cookies only sent over HTTPS
-      httpOnly: true, // Cookies not accessible via JavaScript
+      sameSite: 'none',
+      secure: true,
+      httpOnly: true,
       path: '/',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 30 * 24 * 60 * 60 * 1000,
       ...options,
     };
 
@@ -167,20 +197,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     console.log(`Current environment: ${process.env.NODE_ENV}`);
     console.log(`Request origin: ${req.headers.origin}`);
 
-    // Call original method with our enhanced options
     return originalCookie(name, val, cookieOptions);
   } as typeof res.cookie;
 
   next();
 });
 
-// Middleware to sanitize data against NoSQL query injection
 app.use((req: Request, _res: Response, next: NextFunction) => {
   if (req.body) {
     const sanitizeValue = (obj: any): any => {
       if (obj && typeof obj === 'object') {
         for (const key in obj) {
-          // Convert MongoDB operator keys ($...) to safe strings if not in a trusted context
           if (key.startsWith('$')) {
             const safeKey = key.replace('$', '_dollar_');
             obj[safeKey] = obj[key];
@@ -200,10 +227,8 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// Error handlers
 app.use(rateLimitErrorHandler);
 
-// API routes
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -214,10 +239,30 @@ app.use('/api/earnings', earningsRoutes);
 app.use('/api/email-verification', emailVerificationRoutes);
 app.use('/api/admin/earnings', adminEarningsRoutes);
 
-// Error handling middleware (must be after all routes)
+if (
+  process.env.NODE_ENV !== 'production' ||
+  process.env.ENABLE_SWAGGER === 'true'
+) {
+  app.use(
+    '/api/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerDocument, {
+      explorer: true,
+      customSiteTitle: 'OpenSpace API Documentation',
+      customCss: '.swagger-ui .topbar { display: none }',
+    })
+  );
+
+  console.log('API documentation available at /api/docs');
+
+  app.get('/api/docs.json', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerDocument);
+  });
+}
+
 app.use(globalErrorHandler);
 
-// Health check route
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });
 });
@@ -243,7 +288,6 @@ createUploadDirs().catch(console.error);
 
 const startServer = async () => {
   try {
-    // Connect to MongoDB
     if (!process.env.MONGO_URL) {
       throw new Error('MONGO_URL not defined in environment variables');
     }

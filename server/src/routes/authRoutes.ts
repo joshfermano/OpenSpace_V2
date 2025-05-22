@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request } from 'express';
 import * as authController from '../controllers/authController';
 import { protect, authenticateJWT } from '../middlewares/authMiddleware';
 import multer from 'multer';
@@ -8,10 +8,10 @@ const router = express.Router();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req: Request, file: Express.Multer.File, cb: any) => {
+  destination: (_req: Request, _file: Express.Multer.File, cb: any) => {
     cb(null, path.join(__dirname, '../uploads/verifications'));
   },
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     cb(
       null,
       `user-verification-${Date.now()}${path.extname(file.originalname)}`

@@ -23,6 +23,13 @@ const imageService_2 = require("../services/imageService");
 // Create a new room listing
 const createRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if user is a host
         const user = yield User_1.default.findById(userId);
@@ -182,14 +189,18 @@ const getRoomById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             });
             return;
         }
-        if ((!room.isPublished || room.status !== 'approved') &&
-            req.user.role !== 'admin' &&
-            room.host._id.toString() !== req.user.id) {
-            res.status(403).json({
-                success: false,
-                message: 'This room is not available for viewing',
-            });
-            return;
+        // Check if the user is authenticated
+        const isAuthenticated = req.user && req.user.id;
+        const isAdmin = isAuthenticated && req.user && req.user.role === 'admin';
+        const isOwner = isAuthenticated && req.user && room.host._id.toString() === req.user.id;
+        if (!room.isPublished || room.status !== 'approved') {
+            if (!isAuthenticated || (!isAdmin && !isOwner)) {
+                res.status(403).json({
+                    success: false,
+                    message: 'This room is not available for viewing',
+                });
+                return;
+            }
         }
         res.status(200).json({
             success: true,
@@ -209,6 +220,13 @@ exports.getRoomById = getRoomById;
 const updateRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { roomId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if room exists
         const room = yield Room_1.default.findById(roomId);
@@ -285,6 +303,13 @@ exports.updateRoom = updateRoom;
 const deleteRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { roomId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if room exists
         const room = yield Room_1.default.findById(roomId);
@@ -350,8 +375,13 @@ const getRoomsByHost = (req, res) => __awaiter(void 0, void 0, void 0, function*
         const skip = (page - 1) * limit;
         // Filter for published and approved rooms only (for regular users)
         const filter = { host: hostId };
-        // If not the host or admin, only show published and approved rooms
-        if (req.user.id !== hostId && req.user.role !== 'admin') {
+        // Check if user is authenticated
+        const isAuthenticated = !!req.user;
+        const isOwner = isAuthenticated && req.user && req.user.id === hostId;
+        const isAdmin = isAuthenticated && req.user && req.user.role === 'admin';
+        // For non-authenticated users or users who are not the owner/admin,
+        // only show published and approved rooms
+        if (!isOwner && !isAdmin) {
             filter.isPublished = true;
             filter.status = 'approved';
         }
@@ -381,6 +411,13 @@ exports.getRoomsByHost = getRoomsByHost;
 // Get my rooms (for hosts)
 const getMyRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if user is a host
         const user = yield User_1.default.findById(userId);
@@ -473,8 +510,7 @@ exports.searchRooms = searchRooms;
 // Get pending room approvals (admin only)
 const getPendingRoomApprovals = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Check if user is admin
-        if (req.user.role !== 'admin') {
+        if (!req.user || req.user.role !== 'admin') {
             res.status(403).json({
                 success: false,
                 message: 'Not authorized to access this resource',
@@ -512,8 +548,7 @@ exports.getPendingRoomApprovals = getPendingRoomApprovals;
 // Approve or reject room (admin only)
 const approveRejectRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Check if user is admin
-        if (req.user.role !== 'admin') {
+        if (!req.user || req.user.role !== 'admin') {
             res.status(403).json({
                 success: false,
                 message: 'Not authorized to approve or reject rooms',
@@ -559,11 +594,11 @@ const approveRejectRoom = (req, res) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.approveRejectRoom = approveRejectRoom;
-// Get room availability
 const getRoomAvailability = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { roomId } = req.params;
         const { startDate, endDate } = req.query;
+        console.log(`[Server] Fetching availability for room ${roomId} from ${startDate} to ${endDate}`);
         // Validate dates
         if (!startDate || !endDate) {
             res.status(400).json({
@@ -574,6 +609,8 @@ const getRoomAvailability = (req, res) => __awaiter(void 0, void 0, void 0, func
         }
         const start = new Date(startDate);
         const end = new Date(endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             res.status(400).json({
                 success: false,
@@ -581,7 +618,6 @@ const getRoomAvailability = (req, res) => __awaiter(void 0, void 0, void 0, func
             });
             return;
         }
-        // Check if room exists
         const room = yield Room_1.default.findById(roomId);
         if (!room) {
             res.status(404).json({
@@ -590,42 +626,96 @@ const getRoomAvailability = (req, res) => __awaiter(void 0, void 0, void 0, func
             });
             return;
         }
-        // Check if requested dates are within room's availability
-        if (start < room.availability.startDate ||
-            end > room.availability.endDate) {
-            res.status(400).json({
-                success: false,
-                message: 'Requested dates are outside of room availability',
-            });
-            return;
+        // Cast req to AuthRequest to access user safely if needed
+        const authReq = req;
+        // Check if room is published and accessible
+        if (!room.isPublished || room.status !== 'approved') {
+            const isAuthenticated = authReq.user && authReq.user.id;
+            const isAdmin = isAuthenticated && authReq.user && authReq.user.role === 'admin';
+            const isOwner = isAuthenticated &&
+                authReq.user &&
+                room.host.toString() === authReq.user.id;
+            if (!isAuthenticated || (!isAdmin && !isOwner)) {
+                res.status(403).json({
+                    success: false,
+                    message: 'This room is not available for viewing',
+                });
+                return;
+            }
         }
-        // Check if any unavailable dates are within the requested range
-        const unavailableDatesInRange = room.availability.unavailableDates.filter((date) => date >= start && date <= end);
-        // Check if there are any existing bookings for the dates
         const existingBookings = yield Booking_1.default.find({
             room: roomId,
-            bookingStatus: { $in: ['pending', 'confirmed'] },
+            bookingStatus: { $nin: ['cancelled', 'rejected'] },
             $or: [
-                {
-                    // Check if booking overlaps with requested dates
-                    $and: [{ checkIn: { $lte: end } }, { checkOut: { $gte: start } }],
-                },
+                // Find all bookings that overlap with the requested date range
+                { $and: [{ checkIn: { $lte: end } }, { checkOut: { $gte: start } }] },
             ],
+        }).select('_id checkIn checkOut checkInTime checkOutTime user bookingStatus paymentStatus');
+        console.log(`[Server] Found ${existingBookings.length} bookings for room ${roomId}`);
+        // Log each booking for debugging
+        existingBookings.forEach((booking, index) => {
+            console.log(`[Server] Booking ${index + 1}: ID=${booking._id}, Status=${booking.bookingStatus}, Check-in=${booking.checkIn.toISOString().split('T')[0]}, Check-out=${booking.checkOut.toISOString().split('T')[0]}`);
         });
-        const isAvailable = unavailableDatesInRange.length === 0 && existingBookings.length === 0;
+        const hostBlockedDates = room.availability.unavailableDates || [];
+        // Normalize host-blocked dates to midnight
+        const normalizedHostBlockedDates = hostBlockedDates.map((date) => {
+            const normalizedDate = new Date(date);
+            normalizedDate.setHours(0, 0, 0, 0);
+            return normalizedDate;
+        });
+        // Combine all unavailable dates for THIS SPECIFIC ROOM ONLY
+        let allUnavailableDates = [...normalizedHostBlockedDates];
+        // Add dates from existing bookings for THIS ROOM ONLY
+        existingBookings.forEach((booking) => {
+            const bookingStart = new Date(booking.checkIn);
+            const bookingEnd = new Date(booking.checkOut);
+            // Set hours to midnight for date comparison
+            bookingStart.setHours(0, 0, 0, 0);
+            bookingEnd.setHours(0, 0, 0, 0);
+            // Add all dates between start and end (inclusive)
+            let currentDate = new Date(bookingStart);
+            while (currentDate <= bookingEnd) {
+                // Check for duplicate dates before adding
+                const isDuplicate = allUnavailableDates.some((date) => date.getFullYear() === currentDate.getFullYear() &&
+                    date.getMonth() === currentDate.getMonth() &&
+                    date.getDate() === currentDate.getDate());
+                if (!isDuplicate) {
+                    allUnavailableDates.push(new Date(currentDate));
+                    console.log(`[Server] Added date ${currentDate.toISOString().split('T')[0]} as unavailable from booking ID=${booking._id}`);
+                }
+                // Move to next day
+                const nextDate = new Date(currentDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                currentDate = nextDate;
+            }
+        });
+        // Format times in 12-hour format for the client and ensure roomId is included
+        const formattedBookings = existingBookings.map((booking) => {
+            const formattedBooking = {
+                _id: booking._id,
+                roomId: roomId, // Explicitly add roomId to each booking
+                checkIn: booking.checkIn,
+                checkOut: booking.checkOut,
+                checkInTime: convertTo12HourFormat(booking.checkInTime || '14:00'),
+                checkOutTime: convertTo12HourFormat(booking.checkOutTime || '12:00'),
+                userId: booking.user, // Include the user ID for identity checking
+                bookingStatus: booking.bookingStatus,
+                paymentStatus: booking.paymentStatus,
+            };
+            return formattedBooking;
+        });
+        console.log(`[Server] Returning ${allUnavailableDates.length} unavailable dates for room ${roomId}`);
         res.status(200).json({
             success: true,
             data: {
-                isAvailable,
-                unavailableDatesInRange,
-                existingBookings: existingBookings.map((booking) => ({
-                    checkIn: booking.checkIn,
-                    checkOut: booking.checkOut,
-                })),
+                roomId: roomId,
+                unavailableDates: allUnavailableDates,
+                existingBookings: formattedBookings,
             },
         });
     }
     catch (error) {
+        console.error(`[Server] Error in getRoomAvailability for room ${req.params.roomId}:`, error);
         res.status(500).json({
             success: false,
             message: 'Error checking room availability',
@@ -634,11 +724,44 @@ const getRoomAvailability = (req, res) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.getRoomAvailability = getRoomAvailability;
-// Update room availability
+// Helper function to convert 24-hour time format to 12-hour format
+function convertTo12HourFormat(time) {
+    // If already in 12-hour format (contains AM/PM), return as is
+    if (time.includes('AM') || time.includes('PM')) {
+        return time;
+    }
+    try {
+        // Convert from 24h to 12h format
+        const [hours, minutes] = time.split(':');
+        const hour = parseInt(hours, 10);
+        if (hour === 0) {
+            return `12:${minutes} AM`;
+        }
+        else if (hour < 12) {
+            return `${hour}:${minutes} AM`;
+        }
+        else if (hour === 12) {
+            return `12:${minutes} PM`;
+        }
+        else {
+            return `${hour - 12}:${minutes} PM`;
+        }
+    }
+    catch (error) {
+        console.error('Error converting time format:', error);
+        return time; // Return original if conversion fails
+    }
+}
 const updateRoomAvailability = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { roomId } = req.params;
         const { startDate, endDate, isAlwaysAvailable, unavailableDates } = req.body;
+        if (!req.user) {
+            res
+                .status(401)
+                .json({ success: false, message: 'User not authenticated' });
+            return;
+        }
         // Check if room exists
         const room = yield Room_1.default.findById(roomId);
         if (!room) {
@@ -688,6 +811,12 @@ const uploadRoomImages = (req, res) => __awaiter(void 0, void 0, void 0, functio
     try {
         const { roomId } = req.params;
         const files = req.files;
+        if (!req.user) {
+            res
+                .status(401)
+                .json({ success: false, message: 'User not authenticated' });
+            return;
+        }
         if (!files || files.length === 0) {
             res.status(400).json({
                 success: false,
@@ -750,6 +879,12 @@ exports.uploadRoomImages = uploadRoomImages;
 const deleteRoomImage = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { roomId, imageId } = req.params;
+        if (!req.user) {
+            res
+                .status(401)
+                .json({ success: false, message: 'User not authenticated' });
+            return;
+        }
         // Find room
         const room = yield Room_1.default.findById(roomId);
         if (!room) {

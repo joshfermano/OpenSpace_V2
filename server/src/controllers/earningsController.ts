@@ -5,18 +5,22 @@ import User from '../models/User';
 import Booking from '../models/Booking';
 import { v4 as uuidv4 } from 'uuid';
 
-// Define a custom Request type that includes the user property
 type AuthRequest = Request;
 
-// Get host earnings
 export const getHostEarnings = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
-    // Check if user is a host
     const user = await User.findById(userId);
     if (!user || user.role !== 'host') {
       res.status(403).json({
@@ -75,6 +79,13 @@ export const getEarningsSummary = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if user is a host
@@ -186,6 +197,13 @@ export const markBookingCompleted = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { bookingId } = req.params;
 
@@ -297,6 +315,13 @@ export const processWithdrawal = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { amount, method, accountDetails } = req.body;
 
@@ -535,6 +560,13 @@ export const getWithdrawalHistory = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Check if user is a host
@@ -626,6 +658,13 @@ export const getEarningsByDateRange = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { startDate, endDate } = req.query;
 
@@ -718,6 +757,13 @@ export const generateEarningsStatement = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { year } = req.params;
 
@@ -826,6 +872,13 @@ export const getBookingEarnings = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { bookingId } = req.params;
 
@@ -898,6 +951,13 @@ export const processHostPayout = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     if (req.user.role !== 'admin') {
       res.status(403).json({
         success: false,
@@ -974,6 +1034,13 @@ export const updateEarningsStatus = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     if (req.user.role !== 'admin') {
       res.status(403).json({
         success: false,

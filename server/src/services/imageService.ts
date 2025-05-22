@@ -2,10 +2,10 @@ import { supabase } from '../config/supabase';
 import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import os from 'os';
 
 const BUCKET_NAME = process.env.SUPABASE_BUCKET || 'openspace-images';
 
-// Initialize buckets/folders in Supabase
 export const initializeStorage = async (): Promise<void> => {
   try {
     const { data: buckets, error: listError } =
@@ -165,4 +165,63 @@ const getContentType = (extension: string): string => {
   };
 
   return types[extension.toLowerCase()] || 'application/octet-stream';
+};
+
+// Function to upload a base64 encoded image string to Supabase
+export const uploadBase64Image = async (
+  base64String: string,
+  folder: 'rooms' | 'profiles' | 'reviews' | 'verifications',
+  customFilename?: string
+): Promise<string | null> => {
+  let tempFilePath = '';
+  try {
+    // Extract mime type and base64 data
+    const matches = base64String.match(/^data:(.+?);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      throw new Error('Invalid base64 string format');
+    }
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    // Determine file extension
+    const extension = mimeType.split('/')[1];
+    if (!extension) {
+      throw new Error('Could not determine file extension from mime type');
+    }
+    const fileExt = `.${extension}`;
+
+    // Create a buffer from the base64 data
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+
+    // Generate a unique temporary file name
+    const tempDir = os.tmpdir(); // Use OS temporary directory
+    const tempFilename = customFilename
+      ? `${customFilename}${fileExt}`
+      : `${folder}-${uuidv4()}${fileExt}`;
+    tempFilePath = path.join(tempDir, tempFilename);
+
+    // Write the buffer to the temporary file
+    fs.writeFileSync(tempFilePath, imageBuffer);
+
+    // Upload the temporary file using the existing uploadImage function
+    const publicUrl = await uploadImage(tempFilePath, folder, tempFilename); // Pass tempFilename as customFilename to uploadImage
+
+    // The uploadImage function already handles deleting the tempFilePath upon success
+    // If uploadImage fails, we'll delete it in the finally block
+
+    return publicUrl;
+  } catch (error) {
+    console.error('Error in uploadBase64Image:', error);
+    return null;
+  } finally {
+    // Ensure temporary file is deleted if it still exists (e.g., if uploadImage failed before deleting)
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+        console.log(`Cleaned up temporary file: ${tempFilePath}`);
+      } catch (cleanupError) {
+        console.error('Error cleaning up temporary file:', cleanupError);
+      }
+    }
+  }
 };

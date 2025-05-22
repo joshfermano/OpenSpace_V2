@@ -21,6 +21,13 @@ const imageService_1 = require("../services/imageService");
 // Create a new review
 const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { roomId, bookingId, rating, comment, isAnonymous } = req.body;
         // Validate required fields
@@ -123,6 +130,13 @@ const createReview = (req, res) => __awaiter(void 0, void 0, void 0, function* (
 exports.createReview = createReview;
 const checkReviewEligibility = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { roomId } = req.params;
         // Check if room exists
@@ -264,6 +278,13 @@ exports.getRoomReviews = getRoomReviews;
 // Get user's reviews
 const getUserReviews = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Pagination
         const page = parseInt(req.query.page) || 1;
@@ -303,6 +324,13 @@ exports.getUserReviews = getUserReviews;
 // Get host's received reviews
 const getHostReviews = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Get rooms owned by the host
         const rooms = yield Room_1.default.find({ host: userId }).select('_id');
@@ -363,6 +391,13 @@ exports.getHostReviews = getHostReviews;
 const getReviewById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { reviewId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         // Check if ID is valid
         if (!mongoose_1.default.Types.ObjectId.isValid(reviewId)) {
             res.status(400).json({
@@ -430,6 +465,13 @@ exports.getReviewById = getReviewById;
 const updateReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { reviewId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { rating, comment, isAnonymous } = req.body;
         // Find review
@@ -503,6 +545,13 @@ exports.updateReview = updateReview;
 const deleteReview = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { reviewId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Find review
         const review = yield Review_1.default.findById(reviewId);

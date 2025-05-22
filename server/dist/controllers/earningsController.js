@@ -18,11 +18,16 @@ const Earnings_1 = __importDefault(require("../models/Earnings"));
 const User_1 = __importDefault(require("../models/User"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const uuid_1 = require("uuid");
-// Get host earnings
 const getHostEarnings = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
-        // Check if user is a host
         const user = yield User_1.default.findById(userId);
         if (!user || user.role !== 'host') {
             res.status(403).json({
@@ -74,6 +79,13 @@ exports.getHostEarnings = getHostEarnings;
 // Get earnings summary
 const getEarningsSummary = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if user is a host
         const user = yield User_1.default.findById(userId);
@@ -173,6 +185,13 @@ exports.getEarningsSummary = getEarningsSummary;
 // Mark booking as completed and convert pending earnings to available
 const markBookingCompleted = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { bookingId } = req.params;
         // Check if user is a host
@@ -273,6 +292,13 @@ exports.markBookingCompleted = markBookingCompleted;
 // Process withdrawal request
 const processWithdrawal = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { amount, method, accountDetails } = req.body;
         // Check if user is a host
@@ -480,6 +506,13 @@ exports.processWithdrawal = processWithdrawal;
 // Get withdrawal history
 const getWithdrawalHistory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if user is a host
         const user = yield User_1.default.findById(userId);
@@ -563,6 +596,13 @@ exports.getWithdrawalHistory = getWithdrawalHistory;
 // Get earnings by date range
 const getEarningsByDateRange = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { startDate, endDate } = req.query;
         // Check if user is a host
@@ -636,6 +676,13 @@ exports.getEarningsByDateRange = getEarningsByDateRange;
 // Generate earnings statement (for tax purposes)
 const generateEarningsStatement = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { year } = req.params;
         // Check if user is a host
@@ -726,6 +773,13 @@ exports.generateEarningsStatement = generateEarningsStatement;
 // Get earnings for a specific booking
 const getBookingEarnings = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { bookingId } = req.params;
         // Check if user is a host
@@ -790,6 +844,13 @@ exports.getBookingEarnings = getBookingEarnings;
 // For admin: Process host payout
 const processHostPayout = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         if (req.user.role !== 'admin') {
             res.status(403).json({
                 success: false,
@@ -855,6 +916,13 @@ exports.processHostPayout = processHostPayout;
 // Update pending earnings to available (scheduled job)
 const updateEarningsStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         if (req.user.role !== 'admin') {
             res.status(403).json({
                 success: false,

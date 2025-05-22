@@ -177,21 +177,59 @@ const deleteBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 exports.deleteBooking = deleteBooking;
 const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const userId = req.user.id;
-        const { roomId, checkIn, checkOut, checkInTime, // Extract check-in time from request
-        checkOutTime, // Extract check-out time from request
-        guests, totalPrice, priceBreakdown, paymentMethod, specialRequests, } = req.body;
-        console.log('Creating booking with data:', req.body);
-        // Validate required fields
-        if (!roomId || !checkIn || !checkOut || !guests || !totalPrice) {
-            res.status(400).json({
+        if (!req.user) {
+            res.status(401).json({
                 success: false,
-                message: 'Missing required booking information',
-                details: { roomId, checkIn, checkOut, guests, totalPrice },
+                message: 'User not authenticated',
             });
             return;
         }
-        // Find the room
+        const userId = req.user.id;
+        const { roomId, checkIn, checkOut, checkInTime, checkOutTime, guests, totalPrice, priceBreakdown, specialRequests, paymentMethod, } = req.body;
+        // Fetch the full user document to check verification status
+        const user = yield User_1.default.findById(userId);
+        if (!user) {
+            res.status(404).json({
+                success: false,
+                message: 'User not found',
+            });
+            return;
+        }
+        // Security check for 'Pay at Property'
+        if (paymentMethod === 'property') {
+            if (user.role !== 'admin' && user.verificationLevel !== 'verified') {
+                res.status(403).json({
+                    success: false,
+                    message: "Your ID verification must be approved to use 'Pay at Property'. Please upload your ID and wait for approval or choose another payment method.",
+                });
+                return;
+            }
+        }
+        // Convert times to 24-hour format for storage
+        const normalizedCheckInTime = convertTo24HourFormat(checkInTime || '2:00 PM');
+        const normalizedCheckOutTime = convertTo24HourFormat(checkOutTime || '12:00 PM');
+        // --- START NEW VALIDATION ---
+        // Combine check-in date and time
+        const [hours, minutes] = normalizedCheckInTime.split(':').map(Number);
+        const bookingDateTime = new Date(checkIn); // checkIn should be in YYYY-MM-DD format from client
+        // Important: Ensure 'checkIn' from client is treated as local date, then set time
+        // If checkIn is already a Date object from client, this needs to be handled carefully
+        // Assuming checkIn is a string like '2024-05-22'
+        const year = bookingDateTime.getFullYear();
+        const month = bookingDateTime.getMonth(); // 0-indexed
+        const day = bookingDateTime.getDate();
+        // Create the final booking date and time object, treating it as local time
+        const finalBookingDateTime = new Date(year, month, day, hours, minutes);
+        const currentDateTime = new Date();
+        if (finalBookingDateTime < currentDateTime) {
+            res.status(400).json({
+                success: false,
+                message: 'Booking date and time cannot be in the past.',
+            });
+            return;
+        }
+        // --- END NEW VALIDATION ---
+        // Check if room exists
         const room = yield Room_1.default.findById(roomId);
         if (!room) {
             res.status(404).json({
@@ -200,46 +238,96 @@ const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
-        // Convert dates to Date objects
+        // Check if dates are available
         const checkInDate = new Date(checkIn);
         const checkOutDate = new Date(checkOut);
-        // Determine proper check-in and check-out times based on room type
-        // For 'stay' type, use the room's defined times
-        // For 'conference' and 'event', use the user-selected times
-        let finalCheckInTime = room.houseRules.checkInTime; // Default from room
-        let finalCheckOutTime = room.houseRules.checkOutTime; // Default from room
-        if (room.type !== 'stay') {
-            // For conference and event types, use the times provided in the request
-            if (checkInTime)
-                finalCheckInTime = checkInTime;
-            if (checkOutTime)
-                finalCheckOutTime = checkOutTime;
+        // Normalize dates for comparison by setting time to midnight
+        checkInDate.setHours(0, 0, 0, 0);
+        checkOutDate.setHours(0, 0, 0, 0);
+        // Check if dates are valid
+        if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+            res.status(400).json({
+                success: false,
+                message: 'Invalid date format',
+            });
+            return;
         }
-        // Create the booking with proper times
-        const booking = yield Booking_1.default.create({
+        if (checkInDate > checkOutDate) {
+            res.status(400).json({
+                success: false,
+                message: 'Check-in date must be before check-out date',
+            });
+            return;
+        }
+        // Check for overlapping bookings
+        const existingBookings = yield Booking_1.default.find({
+            room: roomId,
+            bookingStatus: { $in: ['pending', 'confirmed'] },
+            $or: [
+                {
+                    $and: [
+                        { checkIn: { $lte: checkOutDate } },
+                        { checkOut: { $gte: checkInDate } },
+                    ],
+                },
+            ],
+        });
+        if (existingBookings.length > 0) {
+            res.status(409).json({
+                success: false,
+                message: 'Selected dates are not available',
+                overlappingBookings: existingBookings.map((booking) => ({
+                    checkIn: booking.checkIn,
+                    checkOut: booking.checkOut,
+                })),
+            });
+            return;
+        }
+        // Check if the dates are blocked by the host
+        let currentDate = new Date(checkInDate);
+        while (currentDate <= checkOutDate) {
+            const isBlocked = room.availability.unavailableDates.some((blockedDate) => {
+                const date = new Date(blockedDate);
+                date.setHours(0, 0, 0, 0);
+                return (date.getFullYear() === currentDate.getFullYear() &&
+                    date.getMonth() === currentDate.getMonth() &&
+                    date.getDate() === currentDate.getDate());
+            });
+            if (isBlocked) {
+                res.status(409).json({
+                    success: false,
+                    message: `Date ${currentDate.toISOString().split('T')[0]} is not available`,
+                });
+                return;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        // Calculate cancellation deadline (24 hours before check-in)
+        const cancellationDeadline = new Date(checkInDate);
+        cancellationDeadline.setHours(cancellationDeadline.getHours() - 24);
+        const bookingData = {
             room: roomId,
             user: userId,
             host: room.host,
             checkIn: checkInDate,
             checkOut: checkOutDate,
-            checkInTime: finalCheckInTime, // Save the determined check-in time
-            checkOutTime: finalCheckOutTime, // Save the determined check-out time
-            guests: {
-                adults: Number(guests),
-            },
+            checkInTime: normalizedCheckInTime,
+            checkOutTime: normalizedCheckOutTime,
+            guests,
             totalPrice,
-            priceBreakdown: priceBreakdown || {
-                basePrice: totalPrice,
-            },
-            paymentStatus: 'pending',
-            paymentMethod: paymentMethod || 'property',
-            bookingStatus: 'pending',
+            priceBreakdown,
             specialRequests,
-        });
+            paymentMethod: paymentMethod || 'property',
+            paymentStatus: 'pending',
+            bookingStatus: 'pending',
+            cancellationDeadline,
+            isCancellable: new Date() < cancellationDeadline,
+        };
+        const newBooking = yield Booking_1.default.create(bookingData);
         res.status(201).json({
             success: true,
             message: 'Booking created successfully',
-            data: booking,
+            data: Object.assign(Object.assign({}, newBooking.toObject()), { checkInTime: convertTo12HourFormat(normalizedCheckInTime), checkOutTime: convertTo12HourFormat(normalizedCheckOutTime) }),
         });
     }
     catch (error) {
@@ -252,10 +340,69 @@ const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.createBooking = createBooking;
+// Helper function to convert 12-hour time format to 24-hour format
+function convertTo24HourFormat(time) {
+    // If already in 24-hour format (no AM/PM), return as is
+    if (!time.includes('AM') && !time.includes('PM')) {
+        return time;
+    }
+    try {
+        const isPM = time.toUpperCase().includes('PM');
+        const timeWithoutAmPm = time.replace(/am|pm/i, '').trim();
+        const [hoursStr, minutes] = timeWithoutAmPm.split(':');
+        let hours = parseInt(hoursStr, 10);
+        if (isPM && hours !== 12) {
+            hours += 12;
+        }
+        else if (!isPM && hours === 12) {
+            hours = 0;
+        }
+        return `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+    catch (error) {
+        console.error('Error converting time format:', error);
+        return time; // Return original if conversion fails
+    }
+}
+// Helper function to convert 24-hour time format to 12-hour format
+function convertTo12HourFormat(time) {
+    // If already in 12-hour format (contains AM/PM), return as is
+    if (time.includes('AM') || time.includes('PM')) {
+        return time;
+    }
+    try {
+        // Convert from 24h to 12h format
+        const [hours, minutes] = time.split(':');
+        const hour = parseInt(hours, 10);
+        if (hour === 0) {
+            return `12:${minutes} AM`;
+        }
+        else if (hour < 12) {
+            return `${hour}:${minutes} AM`;
+        }
+        else if (hour === 12) {
+            return `12:${minutes} PM`;
+        }
+        else {
+            return `${hour - 12}:${minutes} PM`;
+        }
+    }
+    catch (error) {
+        console.error('Error converting time format:', error);
+        return time; // Return original if conversion fails
+    }
+}
 const processPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         console.log('Payment request received:', req.body);
         const { bookingId, paymentMethod, cardDetails, mobilePaymentDetails } = req.body;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Validate booking ID
         if (!bookingId) {
@@ -330,7 +477,6 @@ const processPayment = (req, res) => __awaiter(void 0, void 0, void 0, function*
                     });
                     return;
                 }
-                // Validate expiry date
                 const [month, year] = expiryDate.split('/');
                 const currentYear = new Date().getFullYear() % 100;
                 const currentMonth = new Date().getMonth() + 1;
@@ -416,18 +562,15 @@ const processPayment = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.processPayment = processPayment;
-// Simple card validation helper function
 const simpleCardValidation = (cardNumber) => {
     // Remove spaces and dashes
     const cleanedNumber = cardNumber.replace(/[\s-]/g, '');
-    // Check if it's numeric and 16 digits
     if (!/^\d{16}$/.test(cleanedNumber)) {
         return false;
     }
     // Luhn algorithm (mod 10)
     let sum = 0;
     let isEven = false;
-    // Loop through values starting from the rightmost one
     for (let i = cleanedNumber.length - 1; i >= 0; i--) {
         let digit = parseInt(cleanedNumber.charAt(i));
         if (isEven) {
@@ -451,16 +594,12 @@ const createEarningRecord = (booking) => __awaiter(void 0, void 0, void 0, funct
         // Set the status and date based on payment method
         let status = 'pending';
         let availableDate = new Date();
-        // Different logic based on payment method
         if (['card', 'gcash', 'maya'].includes(booking.paymentMethod)) {
-            // For online payments (card, gcash, maya), earnings become immediately available
             status = 'available';
             availableDate = new Date(); // Available immediately
         }
         else if (booking.paymentMethod === 'property') {
-            // For pay at property, it remains pending until host marks booking as completed
             status = 'pending';
-            // Set to far future as placeholder (will be updated when completed)
             availableDate = new Date();
             availableDate.setFullYear(availableDate.getFullYear() + 1);
         }
@@ -493,6 +632,13 @@ const cancelBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     try {
         const { bookingId } = req.params;
         const { reason } = req.body;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if booking exists
         const booking = yield Booking_1.default.findById(bookingId);
@@ -605,6 +751,13 @@ exports.cancelBooking = cancelBooking;
 const getBookingById = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const booking = yield Booking_1.default.findById(bookingId)
             .populate('room', 'title images location type price houseRules')
@@ -645,6 +798,13 @@ exports.getBookingById = getBookingById;
 // Get user bookings
 const getUserBookings = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { status } = req.query;
         // Pagination
@@ -683,6 +843,13 @@ exports.getUserBookings = getUserBookings;
 // Get host bookings
 const getHostBookings = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { status } = req.query;
         // Check if user is a host
@@ -730,6 +897,13 @@ exports.getHostBookings = getHostBookings;
 // Check if user can review a room
 const canReviewRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { roomId } = req.params;
         // Check if room exists
@@ -772,6 +946,13 @@ exports.canReviewRoom = canReviewRoom;
 const confirmBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Find the booking
         const booking = yield Booking_1.default.findById(bookingId);
@@ -820,6 +1001,13 @@ exports.confirmBooking = confirmBooking;
 const completeBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Find the booking
         const booking = yield Booking_1.default.findById(bookingId);
@@ -885,6 +1073,13 @@ const rejectBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     try {
         const { bookingId } = req.params;
         const { reason } = req.body;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Check if booking exists
         const booking = yield Booking_1.default.findById(bookingId);
@@ -940,6 +1135,13 @@ exports.rejectBooking = rejectBooking;
 const markPaymentReceived = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Find the booking
         const booking = yield Booking_1.default.findById(bookingId);
@@ -993,6 +1195,13 @@ exports.markPaymentReceived = markPaymentReceived;
 const canCancelBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         // Find the booking
         const booking = yield Booking_1.default.findById(bookingId);
@@ -1074,6 +1283,13 @@ exports.canCancelBooking = canCancelBooking;
 const sendReceiptEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
+        if (!req.user) {
+            res.status(401).json({
+                success: false,
+                message: 'User not authenticated',
+            });
+            return;
+        }
         const userId = req.user.id;
         const { recipientEmail, receiptDetails } = req.body;
         // Check if booking exists
@@ -1109,7 +1325,10 @@ const sendReceiptEmail = (req, res) => __awaiter(void 0, void 0, void 0, functio
             const nightsCount = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
             const user = booking.user; // Cast to 'any' to access firstName and lastName
             receipt = {
-                referenceNumber: booking._id.toString().slice(-8).toUpperCase(),
+                referenceNumber: booking._id
+                    .toString()
+                    .slice(-8)
+                    .toUpperCase(),
                 bookingDetails: {
                     bookingId: booking._id,
                     propertyName: booking.room.title,

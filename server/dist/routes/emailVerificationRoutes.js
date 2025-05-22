@@ -7,11 +7,10 @@ const express_1 = __importDefault(require("express"));
 const authMiddleware_1 = require("../middlewares/authMiddleware");
 const emailVerificationController_1 = require("../controllers/emailVerificationController");
 const router = express_1.default.Router();
-// Test email route (for troubleshooting only)
+// Public routes (no authentication required)
 router.post('/test-email', emailVerificationController_1.testEmailDelivery);
-// Protected routes (require authentication)
-router.use(authMiddleware_1.protect);
+router.post('/send-email', emailVerificationController_1.sendVerificationByEmail);
+router.post('/verify-otp', emailVerificationController_1.verifyEmailWithOTP);
+router.post('/resend-otp', emailVerificationController_1.resendEmailVerification);
 router.post('/send-otp', authMiddleware_1.protect, emailVerificationController_1.sendEmailVerificationOTP);
-router.post('/verify-otp', authMiddleware_1.protect, emailVerificationController_1.verifyEmailWithOTP);
-router.post('/resend-otp', authMiddleware_1.protect, emailVerificationController_1.resendEmailVerification);
 exports.default = router;

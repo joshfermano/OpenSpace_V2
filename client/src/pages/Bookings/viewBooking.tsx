@@ -26,17 +26,7 @@ import { FaCar, FaRestroom, FaAccessibleIcon } from 'react-icons/fa';
 import { bookingApi } from '../../services/bookingApi';
 import logo_black from '../../assets/logo_black.jpg';
 import CancelBookingModal from '../../components/Bookings/CancelBookingModal';
-
-const convertTo12Hour = (time24: string) => {
-  if (!time24) return '';
-
-  const [hours, minutes] = time24.split(':');
-  let hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  hour = hour % 12;
-  hour = hour ? hour : 12; // Convert 0 to 12
-  return `${hour}:${minutes} ${ampm}`;
-};
+import { formatTimeTo12Hour } from '../../utils/bookingHelpers';
 
 const ViewBooking = () => {
   const { bookingId } = useParams();
@@ -311,14 +301,14 @@ const ViewBooking = () => {
       checkInDate: formatDate(booking.checkIn),
       checkOutDate: formatDate(booking.checkOut),
       checkInTime: booking.checkInTime
-        ? convertTo12Hour(booking.checkInTime)
+        ? formatTimeTo12Hour(booking.checkInTime)
         : room.type === 'stay'
         ? '2:00 PM'
         : room.type === 'conference'
         ? '8:00 AM'
         : '10:00 AM',
       checkOutTime: booking.checkOutTime
-        ? convertTo12Hour(booking.checkOutTime)
+        ? formatTimeTo12Hour(booking.checkOutTime)
         : room.type === 'stay'
         ? '12:00 PM'
         : room.type === 'conference'
@@ -423,7 +413,7 @@ const ViewBooking = () => {
                     </p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium mt-1">
                       {booking.checkInTime
-                        ? convertTo12Hour(booking.checkInTime)
+                        ? formatTimeTo12Hour(booking.checkInTime)
                         : room.type === 'stay'
                         ? '2:00 PM'
                         : room.type === 'conference'
@@ -444,7 +434,7 @@ const ViewBooking = () => {
                     </p>
                     <p className="text-gray-700 dark:text-gray-300 font-medium mt-1">
                       {booking.checkOutTime
-                        ? convertTo12Hour(booking.checkOutTime)
+                        ? formatTimeTo12Hour(booking.checkOutTime)
                         : room.type === 'stay'
                         ? '12:00 PM'
                         : room.type === 'conference'

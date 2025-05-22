@@ -29,6 +29,13 @@ export const createReview = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { roomId, bookingId, rating, comment, isAnonymous } = req.body;
 
@@ -151,6 +158,13 @@ export const checkReviewEligibility = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { roomId } = req.params;
 
@@ -316,6 +330,13 @@ export const getUserReviews = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Pagination
@@ -361,6 +382,13 @@ export const getHostReviews = async (
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Get rooms owned by the host
@@ -430,6 +458,13 @@ export const getReviewById = async (
 ): Promise<void> => {
   try {
     const { reviewId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
 
     // Check if ID is valid
     if (!mongoose.Types.ObjectId.isValid(reviewId)) {
@@ -506,6 +541,13 @@ export const updateReview = async (
 ): Promise<void> => {
   try {
     const { reviewId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
     const { rating, comment, isAnonymous } = req.body;
 
@@ -593,6 +635,13 @@ export const deleteReview = async (
 ): Promise<void> => {
   try {
     const { reviewId } = req.params;
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'User not authenticated',
+      });
+      return;
+    }
     const userId = req.user.id;
 
     // Find review

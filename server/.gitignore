@@ -9,6 +9,9 @@
 # Node Modules
 node_modules/
 
+# Dist
+dist/
+
 # images - using more comprehensive patterns
 **/*.png
 **/*.jpg

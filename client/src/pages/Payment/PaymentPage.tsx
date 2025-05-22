@@ -726,8 +726,9 @@ const PaymentPage = () => {
                       User verification required
                     </p>
                     <p className="text-sm text-red-600/80 dark:text-red-400/80 mt-1">
-                      Only verified users can select pay at property. Please
-                      verify your account or choose a different payment method.
+                      Your ID verification must be approved by an admin to use
+                      Pay at Property. Please upload your ID in your profile and
+                      wait for approval, or choose a different payment method.
                     </p>
                   </div>
                 </div>

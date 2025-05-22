@@ -44,10 +44,10 @@ const path_1 = __importDefault(require("path"));
 const router = express_1.default.Router();
 // Configure multer for file uploads
 const storage = multer_1.default.diskStorage({
-    destination: (req, file, cb) => {
+    destination: (_req, _file, cb) => {
         cb(null, path_1.default.join(__dirname, '../uploads/verifications'));
     },
-    filename: (req, file, cb) => {
+    filename: (_req, file, cb) => {
         cb(null, `user-verification-${Date.now()}${path_1.default.extname(file.originalname)}`);
     },
 });
@@ -74,49 +74,8 @@ router.get('/me', authMiddleware_1.authenticateJWT, authController.getCurrentUse
 router.post('/forgot-password', authController.requestPasswordReset);
 router.post('/reset-password', authController.resetPassword);
 router.get('/validate-reset-token/:token', authController.validateResetToken);
-// Email verification - PUBLIC routes
-router.post('/email-verification/verify', (req, res) => authController.verifyEmailWithOTP(req, res));
-router.post('/email-verification/send', (req, res) => {
-    var _a;
-    // Extract email from the request body
-    const { email } = req.body;
-    if (!email) {
-        return res.status(400).json({
-            success: false,
-            message: 'Email is required',
-        });
-    }
-    // Get the user ID if available - this route may be used by non-authenticated users
-    const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a._id) || null;
-    authController
-        .sendEmailVerificationOTP(userId, email)
-        .then((success) => {
-        if (success) {
-            res.status(200).json({
-                success: true,
-                message: 'Verification email sent successfully',
-            });
-        }
-        else {
-            res.status(500).json({
-                success: false,
-                message: 'Failed to send verification email',
-            });
-        }
-    })
-        .catch((error) => {
-        console.error('Error sending verification email:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error sending verification email',
-        });
-    });
-});
-router.post('/email-verification/resend', (req, res) => authController.resendEmailVerification(req, res));
 // ===== Protected routes (require authentication) =====
 router.use(authMiddleware_1.protect);
-// Email verification (authenticated)
-router.post('/email-verification/initiate', (req, res) => authController.initiateEmailVerification(req, res));
 // Phone verification (authenticated)
 router.post('/phone-verification/initiate', (req, res) => authController.initiatePhoneVerification(req, res));
 router.post('/phone-verification/verify', (req, res) => authController.verifyPhoneWithOTP(req, res));

@@ -12,13 +12,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteImage = exports.uploadImage = exports.initializeStorage = void 0;
+exports.uploadBase64Image = exports.deleteImage = exports.uploadImage = exports.initializeStorage = void 0;
 const supabase_1 = require("../config/supabase");
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const uuid_1 = require("uuid");
+const os_1 = __importDefault(require("os"));
 const BUCKET_NAME = process.env.SUPABASE_BUCKET || 'openspace-images';
-// Initialize buckets/folders in Supabase
 const initializeStorage = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { data: buckets, error: listError } = yield supabase_1.supabase.storage.listBuckets();
@@ -155,3 +155,54 @@ const getContentType = (extension) => {
     };
     return types[extension.toLowerCase()] || 'application/octet-stream';
 };
+// Function to upload a base64 encoded image string to Supabase
+const uploadBase64Image = (base64String, folder, customFilename) => __awaiter(void 0, void 0, void 0, function* () {
+    let tempFilePath = '';
+    try {
+        // Extract mime type and base64 data
+        const matches = base64String.match(/^data:(.+?);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+            throw new Error('Invalid base64 string format');
+        }
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+        // Determine file extension
+        const extension = mimeType.split('/')[1];
+        if (!extension) {
+            throw new Error('Could not determine file extension from mime type');
+        }
+        const fileExt = `.${extension}`;
+        // Create a buffer from the base64 data
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        // Generate a unique temporary file name
+        const tempDir = os_1.default.tmpdir(); // Use OS temporary directory
+        const tempFilename = customFilename
+            ? `${customFilename}${fileExt}`
+            : `${folder}-${(0, uuid_1.v4)()}${fileExt}`;
+        tempFilePath = path_1.default.join(tempDir, tempFilename);
+        // Write the buffer to the temporary file
+        fs_1.default.writeFileSync(tempFilePath, imageBuffer);
+        // Upload the temporary file using the existing uploadImage function
+        const publicUrl = yield (0, exports.uploadImage)(tempFilePath, folder, tempFilename); // Pass tempFilename as customFilename to uploadImage
+        // The uploadImage function already handles deleting the tempFilePath upon success
+        // If uploadImage fails, we'll delete it in the finally block
+        return publicUrl;
+    }
+    catch (error) {
+        console.error('Error in uploadBase64Image:', error);
+        return null;
+    }
+    finally {
+        // Ensure temporary file is deleted if it still exists (e.g., if uploadImage failed before deleting)
+        if (tempFilePath && fs_1.default.existsSync(tempFilePath)) {
+            try {
+                fs_1.default.unlinkSync(tempFilePath);
+                console.log(`Cleaned up temporary file: ${tempFilePath}`);
+            }
+            catch (cleanupError) {
+                console.error('Error cleaning up temporary file:', cleanupError);
+            }
+        }
+    }
+});
+exports.uploadBase64Image = uploadBase64Image;

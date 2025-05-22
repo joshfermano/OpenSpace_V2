@@ -11,6 +11,7 @@ import ImageGallery from '../../components/Room/ImageGallery';
 import RoomDetails from '../../components/Room/RoomDetails';
 import RoomPolicies from '../../components/Room/RoomPolicies';
 import BookingPanel from '../../components/Room/BookingPanel';
+import ImageModal from '../../components/Modal/ImageModel';
 import placeholder from '../../assets/logo_black.jpg';
 import { API_URL } from '../../services/core';
 import { handleImageError } from '../../utils/imageUtils';
@@ -30,9 +31,23 @@ const ViewRoom = () => {
   const [existingBookings, setExistingBookings] = useState<any[]>([]);
   const [userBookings, setUserBookings] = useState<any[]>([]);
 
-  // Refs to track data loading and prevent disappearing dates
+  // Image Modal State
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
+
   const availabilityFetchedRef = useRef(false);
   const componentMountedRef = useRef(true);
+
+  // Function to handle opening the image modal with a specific image index
+  const handleOpenImageModal = (index: number) => {
+    setModalImageIndex(index);
+    setIsImageModalOpen(true);
+  };
+
+  // Function to close the image modal
+  const handleCloseImageModal = () => {
+    setIsImageModalOpen(false);
+  };
 
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return placeholder;
@@ -41,7 +56,6 @@ const ViewRoom = () => {
   };
 
   const fetchRoomAvailability = async (roomId: string) => {
-    // If we've already fetched availability data and have unavailable dates, don't fetch again
     if (availabilityFetchedRef.current && unavailableDates.length > 0) {
       console.log(
         '[ViewRoom] Availability data already fetched, using cached data'
@@ -62,7 +76,6 @@ const ViewRoom = () => {
         endDate
       );
 
-      // Skip processing if component unmounted during fetch
       if (!componentMountedRef.current) return;
 
       if (availabilityResponse.success) {
@@ -95,7 +108,7 @@ const ViewRoom = () => {
             date.setHours(0, 0, 0, 0);
             return date;
           })
-          .filter((date: Date) => !isNaN(date.getTime())); // Filter out invalid dates
+          .filter((date: Date) => !isNaN(date.getTime()));
 
         let allExistingBookings = [...(existingBookings || [])];
 
@@ -125,7 +138,6 @@ const ViewRoom = () => {
           `[ViewRoom] Room ${roomId} - Received ${allExistingBookings.length} bookings from server`
         );
 
-        // Debug each booking
         allExistingBookings.forEach((booking, index) => {
           const checkIn = new Date(booking.checkIn);
           const checkOut = new Date(booking.checkOut);
@@ -139,7 +151,6 @@ const ViewRoom = () => {
           );
         });
 
-        // Only update state if we have valid data
         if (
           formattedUnavailableDates.length > 0 ||
           allExistingBookings.length > 0
@@ -164,7 +175,6 @@ const ViewRoom = () => {
     }
   };
 
-  // When component mounts/unmounts
   useEffect(() => {
     componentMountedRef.current = true;
 
@@ -329,6 +339,10 @@ const ViewRoom = () => {
       ? 'Events Place'
       : room.type;
 
+  // Generate array of image URLs for the modal
+  const imageUrlsForModal =
+    room.images?.map((img: string) => getImageUrl(img)) || [];
+
   return (
     <div className="min-h-screen bg-light dark:bg-darkBlue text-darkBlue dark:text-light p-4 md:p-6 font-poppins">
       <div className="max-w-7xl mx-auto">
@@ -363,7 +377,6 @@ const ViewRoom = () => {
           </button>
         </div>
 
-        {/* Rest of the component remains the same */}
         {/* Location and category */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6">
           <div className="flex items-center text-gray-600 dark:text-gray-300">
@@ -385,12 +398,13 @@ const ViewRoom = () => {
         <div className="flex flex-col md:grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left column - Room details */}
           <div className="col-span-2">
-            {/* Image gallery */}
+            {/* Image gallery with click handler to open modal */}
             <ImageGallery
               images={room.images}
               title={room.title}
               getImageUrl={getImageUrl}
               handleImageError={handleImageError}
+              onImageClick={handleOpenImageModal}
             />
 
             {/* Tabs for Details and Policies */}
@@ -482,6 +496,15 @@ const ViewRoom = () => {
           </div>
         </div>
       </div>
+
+      {/* Image Modal */}
+      <ImageModal
+        isOpen={isImageModalOpen}
+        onClose={handleCloseImageModal}
+        images={imageUrlsForModal}
+        currentIndex={modalImageIndex}
+        title={`${room.title} - Images`}
+      />
     </div>
   );
 };

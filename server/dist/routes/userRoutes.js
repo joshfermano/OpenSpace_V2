@@ -84,6 +84,10 @@ const upload = (0, multer_1.default)({
     limits: { fileSize: 5 * 1024 * 1024 },
 });
 const router = express_1.default.Router();
+// Public routes (accessible without authentication)
+// Get user (for viewing host profiles publicly)
+router.get('/:userId', userController.getUserById);
+// Protected routes (require authentication)
 router.use(authMiddleware_1.protect);
 // Profile management
 router.get('/profile', userController.getUserProfile);
@@ -99,6 +103,4 @@ router.put('/notifications/:id/read', userController.markNotificationAsRead);
 router.get('/saved-rooms', userController.getSavedRooms);
 router.post('/save-room', userController.saveRoom);
 router.delete('/unsave-rooms/:roomId', userController.unsaveRoom);
-// Get user (for viewing other users' profiles)
-router.get('/:userId', userController.getUserById);
 exports.default = router;

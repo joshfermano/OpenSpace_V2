@@ -5,6 +5,7 @@ import Calendar from 'react-calendar';
 import TimeSelector from './TimeSelector';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { formatTimeTo12Hour } from '../../utils/bookingHelpers';
 
 interface BookingPanelProps {
   room: any;
@@ -41,6 +42,7 @@ const BookingPanel = ({
   });
   const [allUnavailableDates, setAllUnavailableDates] = useState<Date[]>([]);
   const [isDateRangeConflicting, setIsDateRangeConflicting] = useState(false);
+  const [isPastDateTimeError, setIsPastDateTimeError] = useState(false);
 
   // Ref to track if dates have been processed to prevent disappearing on re-renders
   const datesProcessedRef = useRef(false);
@@ -78,32 +80,69 @@ const BookingPanel = ({
     )}-${String(date.getDate()).padStart(2, '0')}`;
   };
 
-  // Convert 24-hour time format to 12-hour format
-  const convertTo12HourFormat = (time: string): string => {
-    // If already in 12-hour format (contains AM/PM), return as is
-    if (time.includes('AM') || time.includes('PM')) {
-      return time;
+  // Helper function to convert 12-hour time string to 24-hour HH:MM format
+  const convert12HourTo24Hour = (time12h: string): string | null => {
+    if (!time12h) return null;
+    const [time, modifier] = time12h.split(' ');
+    if (!time || !modifier) return null; // Invalid format
+
+    let [hours, minutes] = time.split(':').map(Number);
+
+    if (isNaN(hours) || isNaN(minutes)) return null; // Invalid numbers
+
+    if (modifier.toUpperCase() === 'PM' && hours < 12) {
+      hours += 12;
+    }
+    if (modifier.toUpperCase() === 'AM' && hours === 12) {
+      // Midnight case
+      hours = 0;
+    }
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+      2,
+      '0'
+    )}`;
+  };
+
+  // Function to check if selected date/time is in the past
+  const validateDateTime = () => {
+    if (!dateRange[0] || !checkInTime) {
+      setIsPastDateTimeError(false); // Not enough info yet
+      return;
     }
 
-    // Convert from 24h to 12h format
-    try {
-      const [hours, minutes] = time.split(':');
-      const hour = parseInt(hours, 10);
+    const selectedDate = dateRange[0];
+    const time24h = convert12HourTo24Hour(checkInTime);
 
-      if (hour === 0) {
-        return `12:${minutes} AM`;
-      } else if (hour < 12) {
-        return `${hour}:${minutes} AM`;
-      } else if (hour === 12) {
-        return `12:${minutes} PM`;
-      } else {
-        return `${hour - 12}:${minutes} PM`;
-      }
-    } catch (error) {
-      console.error('Error converting time format:', error);
-      return time; // Return original if conversion fails
+    if (!time24h) {
+      setIsPastDateTimeError(false); // Invalid time format, handle elsewhere or default to no error
+      return;
+    }
+
+    const [hours, minutes] = time24h.split(':').map(Number);
+
+    // Create a date object for the selected check-in date and time
+    // Ensure we use the year, month, and day from selectedDate correctly
+    const selectedDateTime = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      hours,
+      minutes
+    );
+
+    const now = new Date();
+
+    if (selectedDateTime < now) {
+      setIsPastDateTimeError(true);
+    } else {
+      setIsPastDateTimeError(false);
     }
   };
+
+  // Call validateDateTime whenever dateRange or checkInTime changes
+  useEffect(() => {
+    validateDateTime();
+  }, [dateRange[0], checkInTime]);
 
   // Process existing bookings and unavailable dates - run with a stable dependency array
   useEffect(() => {
@@ -317,8 +356,8 @@ const BookingPanel = ({
         const checkInTimeValue = room.houseRules?.checkInTime || '14:00';
         const checkOutTimeValue = room.houseRules?.checkOutTime || '12:00';
 
-        setCheckInTime(convertTo12HourFormat(checkInTimeValue));
-        setCheckOutTime(convertTo12HourFormat(checkOutTimeValue));
+        setCheckInTime(formatTimeTo12Hour(checkInTimeValue));
+        setCheckOutTime(formatTimeTo12Hour(checkOutTimeValue));
       } else if (room.type === 'conference') {
         setCheckInTime('8:00 AM');
         setCheckOutTime('5:00 PM');
@@ -647,6 +686,11 @@ const BookingPanel = ({
       return;
     }
 
+    if (isPastDateTimeError) {
+      toast.error('Cannot book a date or time that has already passed.');
+      return;
+    }
+
     if (dateRange[0] && dateRange[1]) {
       const formattedCheckInDate = formatDate(dateRange[0]);
       const formattedCheckOutDate = formatDate(dateRange[1]);
@@ -654,7 +698,7 @@ const BookingPanel = ({
       const finalCheckInTime =
         checkInTime ||
         (room.type === 'stay'
-          ? convertTo12HourFormat(room.houseRules?.checkInTime || '14:00')
+          ? formatTimeTo12Hour(room.houseRules?.checkInTime || '14:00')
           : room.type === 'conference'
           ? '8:00 AM'
           : '10:00 AM');
@@ -662,7 +706,7 @@ const BookingPanel = ({
       const finalCheckOutTime =
         checkOutTime ||
         (room.type === 'stay'
-          ? convertTo12HourFormat(room.houseRules?.checkOutTime || '12:00')
+          ? formatTimeTo12Hour(room.houseRules?.checkOutTime || '12:00')
           : room.type === 'conference'
           ? '5:00 PM'
           : '10:00 PM');
@@ -914,7 +958,7 @@ const BookingPanel = ({
                 Check-in:
               </span>
               <span className="text-gray-700 dark:text-gray-300">
-                {room.houseRules?.checkInTime || '2:00 PM'}
+                {formatTimeTo12Hour(room.houseRules?.checkInTime || '14:00')}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -922,7 +966,7 @@ const BookingPanel = ({
                 Check-out:
               </span>
               <span className="text-gray-700 dark:text-gray-300">
-                {room.houseRules?.checkOutTime || '12:00 PM'}
+                {formatTimeTo12Hour(room.houseRules?.checkOutTime || '12:00')}
               </span>
             </div>
             <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
@@ -992,28 +1036,41 @@ const BookingPanel = ({
       <button
         onClick={handleBookingClick}
         className={`w-full py-3 px-4 rounded-lg font-medium transition ${
-          dateRange[0] && dateRange[1] && !isDateRangeConflicting
+          dateRange[0] &&
+          dateRange[1] &&
+          !isDateRangeConflicting &&
+          !isPastDateTimeError
             ? 'bg-darkBlue text-light dark:bg-light dark:text-darkBlue hover:opacity-90'
             : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
         }`}
-        disabled={!dateRange[0] || !dateRange[1] || isDateRangeConflicting}>
+        disabled={
+          !dateRange[0] ||
+          !dateRange[1] ||
+          isDateRangeConflicting ||
+          isPastDateTimeError
+        }>
         {!isAuthenticated
           ? 'Log in to Book'
           : isDateRangeConflicting
           ? 'Selected Dates Unavailable'
+          : isPastDateTimeError
+          ? 'Time Has Passed'
           : dateRange[0] && dateRange[1]
           ? 'Book Now'
           : 'Select Dates to Book'}
       </button>
 
       {/* Reservation note - modified to show login message if not authenticated */}
-      {dateRange[0] && dateRange[1] && !isDateRangeConflicting && (
-        <p className="text-center mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {isAuthenticated
-            ? "You won't be charged until confirmation"
-            : 'Please log in or create an account to book this space'}
-        </p>
-      )}
+      {dateRange[0] &&
+        dateRange[1] &&
+        !isDateRangeConflicting &&
+        !isPastDateTimeError && (
+          <p className="text-center mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {isAuthenticated
+              ? "You won't be charged until confirmation"
+              : 'Please log in or create an account to book this space'}
+          </p>
+        )}
 
       {/* Show login prompt if not authenticated */}
       {!isAuthenticated && (

@@ -12,18 +12,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updatePassword = exports.resetPassword = exports.validateResetToken = exports.requestPasswordReset = exports.becomeHost = exports.uploadIdVerification = exports.verifyPhoneWithOTP = exports.initiatePhoneVerification = exports.sendPhoneVerificationOTP = exports.verifyEmailWithOTP = exports.resendEmailVerification = exports.initiateEmailVerification = exports.sendEmailVerificationOTP = exports.getCurrentUser = exports.logout = exports.login = exports.register = void 0;
+exports.updatePassword = exports.resetPassword = exports.validateResetToken = exports.requestPasswordReset = exports.becomeHost = exports.uploadIdVerification = exports.verifyPhoneWithOTP = exports.initiatePhoneVerification = exports.sendPhoneVerificationOTP = exports.sendInitialVerificationEmail = exports.getCurrentUser = exports.logout = exports.login = exports.register = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const emailService_1 = require("../services/emailService");
 const crypto_1 = __importDefault(require("crypto"));
 const User_1 = __importDefault(require("../models/User"));
 const OtpVerification_1 = __importDefault(require("../models/OtpVerification"));
-const emailService_2 = require("../services/emailService");
 const mongoose_1 = __importDefault(require("mongoose"));
+const securityUtils_1 = require("../utils/securityUtils");
 require("dotenv/config");
-const generateOTP = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-};
+const imageService_1 = require("../services/imageService");
 function ensureAuthenticated(req, res) {
     if (!req.user) {
         res.status(401).json({
@@ -39,19 +37,26 @@ const generateToken = (user) => {
     if (!secret) {
         throw new Error('JWT_SECRET is not defined in environment variables');
     }
-    return jsonwebtoken_1.default.sign({
-        userId: user._id,
+    const payload = {
+        userId: user._id.toHexString(),
         email: user.email,
         role: user.role,
-    }, secret, {
+    };
+    return jsonwebtoken_1.default.sign(payload, secret, {
         expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+        algorithm: 'HS256',
     });
 };
 const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
         console.log('Request body:', req.body);
-        const { email, password, firstName, lastName, phoneNumber, verifyPhone } = req.body;
-        // Validate required fields
+        const email = (_a = req.body.email) === null || _a === void 0 ? void 0 : _a.toLowerCase().trim();
+        const password = req.body.password;
+        const firstName = (0, securityUtils_1.sanitizeInput)(req.body.firstName);
+        const lastName = (0, securityUtils_1.sanitizeInput)(req.body.lastName);
+        const phoneNumber = (0, securityUtils_1.sanitizeInput)(req.body.phoneNumber || '');
+        const verifyPhone = req.body.verifyPhone === true;
         if (!email || !password || !firstName || !lastName) {
             res.status(400).json({
                 success: false,
@@ -59,25 +64,24 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             });
             return;
         }
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
+        if (!(0, securityUtils_1.isValidEmail)(email)) {
             res.status(400).json({
                 success: false,
                 message: 'Please provide a valid email address',
             });
             return;
         }
-        // Validate password strength
-        if (password.length < 8) {
+        const passwordCheck = (0, securityUtils_1.isStrongPassword)(password);
+        if (!passwordCheck.valid) {
             res.status(400).json({
                 success: false,
-                message: 'Password must be at least 8 characters long',
+                message: passwordCheck.message,
             });
             return;
         }
-        // Check if user already exists
-        const existingUser = yield User_1.default.findOne({ email });
+        const existingUser = yield User_1.default.findOne({
+            email: { $regex: new RegExp(`^${email}$`, 'i') },
+        });
         if (existingUser) {
             res.status(400).json({
                 success: false,
@@ -90,27 +94,27 @@ const register = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             password,
             firstName,
             lastName,
-            phoneNumber: phoneNumber || '',
+            phoneNumber,
             role: 'user',
             active: true,
             verificationLevel: 'basic',
             isEmailVerified: false,
-            isPhoneVerified: verifyPhone === true ? true : false,
+            isPhoneVerified: verifyPhone,
             isHostVerified: false,
             savedRooms: [],
         };
         const user = yield User_1.default.create(userData);
         const token = generateToken(user);
         const cookieOptions = {
-            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+            maxAge: 30 * 24 * 60 * 60 * 1000,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             path: '/',
         };
         const userResponse = user.toObject();
-        delete userResponse.password;
-        yield (0, exports.sendEmailVerificationOTP)(user._id, user.email);
+        userResponse.password = undefined;
+        yield (0, exports.sendInitialVerificationEmail)(user._id, user.email, user.firstName);
         res.status(201).cookie('token', token, cookieOptions).json({
             success: true,
             message: 'Registration successful',
@@ -130,8 +134,24 @@ exports.register = register;
 const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { email, password } = req.body;
-        const user = yield User_1.default.findOne({ email }).select('+password');
+        console.log(`Login attempt for email: ${email}`);
+        console.log(`Request headers:`, req.headers);
+        console.log(`Origin: ${req.headers.origin}`);
+        if (!email || !password) {
+            res.status(400).json({
+                success: false,
+                message: 'Please provide email and password',
+            });
+            return;
+        }
+        const user = yield User_1.default.findOne({
+            email: {
+                $regex: new RegExp(`^${email.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i'),
+            },
+        }).select('+password');
+        console.log('User lookup result:', user ? 'User found' : 'User not found');
         if (!user) {
+            yield (0, securityUtils_1.addDelay)();
             res.status(401).json({
                 success: false,
                 message: 'Invalid credentials',
@@ -146,7 +166,9 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             return;
         }
         const isMatch = yield user.comparePassword(password);
+        console.log('Password match result:', isMatch);
         if (!isMatch) {
+            yield (0, securityUtils_1.addDelay)();
             res.status(401).json({
                 success: false,
                 message: 'Invalid credentials',
@@ -168,7 +190,7 @@ const login = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             sameSite: cookieOptions.sameSite,
         });
         const userResponse = user.toObject();
-        delete userResponse.password;
+        userResponse.password = undefined;
         res.status(200).cookie('token', token, cookieOptions).json({
             success: true,
             message: 'Login successful',
@@ -243,8 +265,8 @@ const getCurrentUser = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.getCurrentUser = getCurrentUser;
-// Send email verification OTP
-const sendEmailVerificationOTP = (userId, email) => __awaiter(void 0, void 0, void 0, function* () {
+// Export a function to trigger email verification after registration
+const sendInitialVerificationEmail = (userId, email, firstName) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -261,224 +283,15 @@ const sendEmailVerificationOTP = (userId, email) => __awaiter(void 0, void 0, vo
             expiresAt,
         });
         // Send verification email
-        yield (0, emailService_2.sendVerificationEmail)(email, otp, otp);
+        yield (0, emailService_1.sendVerificationEmail)(email, firstName, otp);
         return true;
     }
     catch (error) {
-        console.error('Error sending email verification OTP:', error);
+        console.error('Error sending initial email verification OTP:', error);
         return false;
     }
 });
-exports.sendEmailVerificationOTP = sendEmailVerificationOTP;
-// Initiate email verification
-const initiateEmailVerification = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        const currentUser = ensureAuthenticated(req, res);
-        if (!currentUser)
-            return;
-        const userId = new mongoose_1.default.Types.ObjectId(currentUser._id);
-        const { email } = req.body;
-        if (!email) {
-            res.status(400).json({
-                success: false,
-                message: 'Email is required',
-            });
-            return;
-        }
-        const user = yield User_1.default.findById(userId);
-        if (!user) {
-            res.status(404).json({
-                success: false,
-                message: 'User not found',
-            });
-            return;
-        }
-        // If email is different from current email, update it
-        if (email !== user.email) {
-            user.email = email;
-            user.isEmailVerified = false;
-            yield user.save();
-        }
-        // Send OTP
-        const result = yield (0, exports.sendEmailVerificationOTP)(userId, email);
-        if (result) {
-            res.status(200).json({
-                success: true,
-                message: 'Verification OTP sent to email',
-            });
-        }
-        else {
-            res.status(500).json({
-                success: false,
-                message: 'Failed to send verification OTP',
-            });
-        }
-    }
-    catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Error initiating email verification',
-            error: error.message,
-        });
-    }
-});
-exports.initiateEmailVerification = initiateEmailVerification;
-const resendEmailVerification = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        // If we have a logged-in user, use their details
-        if (req.user) {
-            const userId = new mongoose_1.default.Types.ObjectId(req.user._id);
-            const email = req.user.email;
-            const result = yield (0, exports.sendEmailVerificationOTP)(userId, email);
-            if (result) {
-                res.status(200).json({
-                    success: true,
-                    message: 'Verification OTP sent to email',
-                });
-            }
-            else {
-                res.status(500).json({
-                    success: false,
-                    message: 'Failed to send verification OTP',
-                });
-            }
-            return;
-        }
-        // For cases where we don't have a logged-in user but have the email in the request
-        const { email } = req.body;
-        if (!email) {
-            res.status(400).json({
-                success: false,
-                message: 'Email is required for unauthenticated verification',
-            });
-            return;
-        }
-        // Find user by email
-        const user = yield User_1.default.findOne({ email });
-        if (!user) {
-            res.status(404).json({
-                success: false,
-                message: 'User not found with this email',
-            });
-            return;
-        }
-        // Check if email is already verified
-        if (user.isEmailVerified) {
-            res.status(400).json({
-                success: false,
-                message: 'Email is already verified',
-            });
-            return;
-        }
-        // Generate OTP
-        const otp = generateOTP();
-        const expiresAt = new Date();
-        expiresAt.setMinutes(expiresAt.getMinutes() + 15); // OTP expires in 15 minutes
-        // Store OTP in database
-        yield OtpVerification_1.default.findOneAndUpdate({ user: user._id, type: 'email' }, {
-            otp,
-            expiresAt,
-        }, { upsert: true, new: true });
-        const sendOtpVerificationEmail = (email, firstName, otp) => __awaiter(void 0, void 0, void 0, function* () {
-            try {
-                yield (0, emailService_2.sendVerificationEmail)(email, firstName, otp);
-                return true;
-            }
-            catch (error) {
-                console.error('Error sending verification email:', error);
-                return false;
-            }
-        });
-        // Send verification email with OTP
-        yield sendOtpVerificationEmail(user.email, user.firstName, otp);
-        res.status(200).json({
-            success: true,
-            message: 'Verification OTP resent successfully',
-        });
-    }
-    catch (error) {
-        console.error('Resend email verification error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to resend verification OTP',
-            error: error.message,
-        });
-    }
-});
-exports.resendEmailVerification = resendEmailVerification;
-// Verify email with OTP
-const verifyEmailWithOTP = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    try {
-        if (!req.user) {
-            res.status(401).json({
-                success: false,
-                message: 'Not authenticated',
-            });
-            return;
-        }
-        const { otp } = req.body;
-        if (!otp) {
-            res.status(400).json({
-                success: false,
-                message: 'OTP is required',
-            });
-            return;
-        }
-        const otpRecord = yield OtpVerification_1.default.findOne({
-            otp,
-            type: 'email',
-        });
-        if (!otpRecord) {
-            res.status(400).json({
-                success: false,
-                message: 'Invalid OTP',
-            });
-            return;
-        }
-        if (otpRecord.expiresAt < new Date()) {
-            yield OtpVerification_1.default.deleteOne({ _id: otpRecord._id });
-            res.status(400).json({
-                success: false,
-                message: 'OTP has expired, please request a new one',
-            });
-            return;
-        }
-        const user = yield User_1.default.findById(otpRecord.user);
-        if (!user) {
-            res.status(404).json({
-                success: false,
-                message: 'User not found',
-            });
-            return;
-        }
-        user.isEmailVerified = true;
-        yield user.save();
-        yield OtpVerification_1.default.deleteOne({ _id: otpRecord._id });
-        const token = generateToken(user);
-        const cookieOptions = {
-            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            path: '/',
-        };
-        res.cookie('token', token, cookieOptions);
-        res.status(200).json({
-            success: true,
-            message: 'Email verified successfully',
-            token,
-        });
-    }
-    catch (error) {
-        console.error('Error verifying email:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error verifying email',
-            error: error.message,
-        });
-    }
-});
-exports.verifyEmailWithOTP = verifyEmailWithOTP;
+exports.sendInitialVerificationEmail = sendInitialVerificationEmail;
 // Send phone verification OTP
 const sendPhoneVerificationOTP = (userId, phoneNumber) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -506,14 +319,13 @@ const sendPhoneVerificationOTP = (userId, phoneNumber) => __awaiter(void 0, void
     }
 });
 exports.sendPhoneVerificationOTP = sendPhoneVerificationOTP;
-// Initiate phone verification
 const initiatePhoneVerification = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const currentUser = ensureAuthenticated(req, res);
         if (!currentUser)
             return;
         const userId = new mongoose_1.default.Types.ObjectId(currentUser._id);
-        const { phoneNumber } = req.body;
+        const phoneNumber = (0, securityUtils_1.sanitizeInput)(req.body.phoneNumber);
         if (!phoneNumber) {
             res.status(400).json({
                 success: false,
@@ -565,7 +377,7 @@ const verifyPhoneWithOTP = (req, res) => __awaiter(void 0, void 0, void 0, funct
         if (!user)
             return;
         const userId = user._id;
-        const { otp } = req.body;
+        const otp = (0, securityUtils_1.sanitizeInput)(req.body.otp);
         if (!otp) {
             res.status(400).json({
                 success: false,
@@ -573,20 +385,19 @@ const verifyPhoneWithOTP = (req, res) => __awaiter(void 0, void 0, void 0, funct
             });
             return;
         }
-        // Find the OTP record
         const otpRecord = yield OtpVerification_1.default.findOne({
             user: userId,
             type: 'phone',
             otp,
         });
         if (!otpRecord) {
+            yield (0, securityUtils_1.addDelay)();
             res.status(400).json({
                 success: false,
                 message: 'Invalid OTP',
             });
             return;
         }
-        // Check if OTP is expired
         if (otpRecord.expiresAt < new Date()) {
             yield OtpVerification_1.default.deleteOne({ _id: otpRecord._id });
             res.status(400).json({
@@ -595,9 +406,7 @@ const verifyPhoneWithOTP = (req, res) => __awaiter(void 0, void 0, void 0, funct
             });
             return;
         }
-        // Update user's phone verification status
         yield User_1.default.findByIdAndUpdate(userId, { isPhoneVerified: true });
-        // Delete used OTP
         yield OtpVerification_1.default.deleteOne({ _id: otpRecord._id });
         res.status(200).json({
             success: true,
@@ -619,11 +428,11 @@ const uploadIdVerification = (req, res) => __awaiter(void 0, void 0, void 0, fun
         if (!user)
             return;
         const userId = user._id;
-        const { idType, idNumber, idImage } = req.body;
+        const { idType, idNumber, idImage, businessDocument } = req.body;
         if (!idType || !idNumber || !idImage) {
             res.status(400).json({
                 success: false,
-                message: 'ID type, number, and image are required',
+                message: 'ID type, number, and image (base64) are required',
             });
             return;
         }
@@ -635,20 +444,62 @@ const uploadIdVerification = (req, res) => __awaiter(void 0, void 0, void 0, fun
             });
             return;
         }
+        // Upload ID image
+        const idImageUrl = yield (0, imageService_1.uploadBase64Image)(idImage, 'verifications', `user-${userId}-id`);
+        if (!idImageUrl) {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to upload ID image',
+            });
+            return;
+        }
         userDoc.identificationDocument = {
-            idType,
-            idNumber,
-            idImage,
+            idType: (0, securityUtils_1.sanitizeInput)(idType),
+            idNumber: (0, securityUtils_1.sanitizeInput)(idNumber),
+            idImage: idImageUrl,
             uploadDate: new Date(),
             verificationStatus: 'pending',
         };
+        // Handle business document if provided
+        if (businessDocument) {
+            const { certificateType, certificateNumber, certificateImage } = businessDocument;
+            if (certificateType && certificateNumber && certificateImage) {
+                const certificateImageUrl = yield (0, imageService_1.uploadBase64Image)(certificateImage, 'verifications', `user-${userId}-business-cert`);
+                if (!certificateImageUrl) {
+                    res.status(500).json({
+                        success: false,
+                        message: 'Failed to upload business certificate image',
+                    });
+                    return;
+                }
+                if (userDoc.identificationDocument) {
+                    // Ensure identificationDocument exists
+                    userDoc.identificationDocument.businessDocument = {
+                        certificateType: (0, securityUtils_1.sanitizeInput)(certificateType),
+                        certificateNumber: (0, securityUtils_1.sanitizeInput)(certificateNumber),
+                        certificateImage: certificateImageUrl,
+                        uploadDate: new Date(),
+                    };
+                }
+            }
+            else if (certificateType || certificateNumber || certificateImage) {
+                // If some business doc fields are present but not all, it's an error
+                res.status(400).json({
+                    success: false,
+                    message: 'All business document fields (certificateType, certificateNumber, certificateImage) are required if businessDocument is provided',
+                });
+                return;
+            }
+        }
         yield userDoc.save();
         res.status(200).json({
             success: true,
             message: 'ID verification document uploaded successfully, pending approval',
+            data: userDoc.identificationDocument, // Return the updated document info
         });
     }
     catch (error) {
+        console.error('Error uploading ID verification:', error);
         res.status(500).json({
             success: false,
             message: 'Error uploading ID verification',
@@ -697,8 +548,9 @@ const becomeHost = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 });
 exports.becomeHost = becomeHost;
 const requestPasswordReset = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
     try {
-        const { email } = req.body;
+        const email = (0, securityUtils_1.sanitizeInput)((_a = req.body.email) === null || _a === void 0 ? void 0 : _a.toLowerCase());
         if (!email) {
             res.status(400).json({
                 success: false,
@@ -706,20 +558,18 @@ const requestPasswordReset = (req, res) => __awaiter(void 0, void 0, void 0, fun
             });
             return;
         }
-        // Find user by email
-        const user = yield User_1.default.findOne({ email });
-        // Standardize response time to prevent timing attacks
+        const user = yield User_1.default.findOne({
+            email: { $regex: new RegExp(`^${email}$`, 'i') },
+        });
         if (!user) {
-            yield new Promise((resolve) => setTimeout(resolve, 500));
+            yield (0, securityUtils_1.addDelay)();
             res.status(200).json({
                 success: true,
                 message: 'If your email is registered, you will receive a password reset link',
             });
             return;
         }
-        // Generate reset token
         const resetToken = crypto_1.default.randomBytes(32).toString('hex');
-        // Hash token before saving to database
         const hashedToken = crypto_1.default
             .createHash('sha256')
             .update(resetToken)
@@ -760,12 +610,12 @@ const validateResetToken = (req, res) => __awaiter(void 0, void 0, void 0, funct
         const { token } = req.params;
         // Hash the token from the URL
         const hashedToken = crypto_1.default.createHash('sha256').update(token).digest('hex');
-        // Find user with matching token and valid expiry
         const user = yield User_1.default.findOne({
             resetPasswordToken: hashedToken,
             resetPasswordExpire: { $gt: Date.now() },
         });
         if (!user) {
+            yield (0, securityUtils_1.addDelay)();
             res.status(400).json({
                 success: false,
                 message: 'Invalid or expired reset token',
@@ -791,7 +641,8 @@ const validateResetToken = (req, res) => __awaiter(void 0, void 0, void 0, funct
 exports.validateResetToken = validateResetToken;
 const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { token, password } = req.body;
+        const { token } = req.body;
+        const password = req.body.password;
         if (!token || !password) {
             res.status(400).json({
                 success: false,
@@ -800,10 +651,11 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             return;
         }
         // Validate password strength
-        if (password.length < 8) {
+        const passwordCheck = (0, securityUtils_1.isStrongPassword)(password);
+        if (!passwordCheck.valid) {
             res.status(400).json({
                 success: false,
-                message: 'Password must be at least 8 characters long',
+                message: passwordCheck.message,
             });
             return;
         }
@@ -815,13 +667,13 @@ const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             resetPasswordExpire: { $gt: Date.now() },
         });
         if (!user) {
+            yield (0, securityUtils_1.addDelay)();
             res.status(400).json({
                 success: false,
                 message: 'Invalid or expired reset token',
             });
             return;
         }
-        // Update password and clear reset token fields
         user.password = password;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
@@ -861,21 +713,11 @@ const updatePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             return;
         }
         // Validate password strength
-        if (newPassword.length < 8) {
+        const passwordCheck = (0, securityUtils_1.isStrongPassword)(newPassword);
+        if (!passwordCheck.valid) {
             res.status(400).json({
                 success: false,
-                message: 'New password must be at least 8 characters long',
-            });
-            return;
-        }
-        // Regex for password requirements
-        const hasUpperCase = /[A-Z]/.test(newPassword);
-        const hasNumber = /[0-9]/.test(newPassword);
-        const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-        if (!hasUpperCase || !hasNumber || !hasSpecial) {
-            res.status(400).json({
-                success: false,
-                message: 'Password must contain at least one uppercase letter, one number, and one special character',
+                message: passwordCheck.message,
             });
             return;
         }
@@ -899,6 +741,8 @@ const updatePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
         // Verify current password
         const isMatch = yield userWithPassword.comparePassword(currentPassword);
         if (!isMatch) {
+            // Add delay to prevent timing attacks
+            yield (0, securityUtils_1.addDelay)();
             res.status(401).json({
                 success: false,
                 message: 'Current password is incorrect',

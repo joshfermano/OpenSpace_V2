@@ -117,3 +117,35 @@ export const getPaymentStatusDisplay = (
     };
   }
 };
+
+export const formatTimeTo12Hour = (
+  timeString: string | undefined | null
+): string => {
+  if (!timeString) {
+    return '';
+  }
+
+  if (timeString.includes('AM') || timeString.includes('PM')) {
+    return timeString;
+  }
+
+  const parts = timeString.split(':');
+  if (parts.length < 2) {
+    return timeString;
+  }
+
+  let hours = parseInt(parts[0], 10);
+  const minutes = parseInt(parts[1], 10);
+
+  if (isNaN(hours) || isNaN(minutes)) {
+    return timeString;
+  }
+
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  const minutesStr = minutes < 10 ? '0' + minutes : minutes.toString();
+
+  return `${hours}:${minutesStr} ${ampm}`;
+};

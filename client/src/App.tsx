@@ -4,7 +4,7 @@ import {
   createRoutesFromElements,
   RouterProvider,
 } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -12,57 +12,82 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { initPageLifecycleEvents } from './utils/pageLifecycle';
 
-// Bookings
-import ViewBooking from './pages/Bookings/viewBooking';
-import ViewAllBookings from './pages/Bookings/ViewAllBookings';
+// Loading Fallback Component
+import LoadingSpinner from './components/LoadingSpinner';
+
+const ViewBooking = lazy(() => import('./pages/Bookings/viewBooking'));
+const ViewAllBookings = lazy(() => import('./pages/Bookings/ViewAllBookings'));
 
 // Password Reset
-import ForgotPasswordPage from './pages/Auth/ForgotPasswordPage';
-import ForgotPasswordSent from './pages/Auth/ForgotPasswordSent';
+const ForgotPasswordPage = lazy(
+  () => import('./pages/Auth/ForgotPasswordPage')
+);
+const ForgotPasswordSent = lazy(
+  () => import('./pages/Auth/ForgotPasswordSent')
+);
 
 // Rooms
-import ViewAllListings from './pages/Room/ViewAllListings';
-import ViewAllFavorites from './pages/Room/ViewAllFavorites';
-import ViewAllRoomReviews from './pages/Room/ViewAllRoomReviews';
+const ViewAllListings = lazy(() => import('./pages/Room/ViewAllListings'));
+const ViewAllFavorites = lazy(() => import('./pages/Room/ViewAllFavorites'));
+const ViewAllRoomReviews = lazy(
+  () => import('./pages/Room/ViewAllRoomReviews')
+);
 
 // Dashboard Pages
-import EarningsDashboard from './pages/Dashboard/EarningsDashboard';
-import PlatformRevenueDashboard from './pages/Dashboard/PlatformRevenueDashboard';
+const EarningsDashboard = lazy(
+  () => import('./pages/Dashboard/EarningsDashboard')
+);
+const PlatformRevenueDashboard = lazy(
+  () => import('./pages/Dashboard/PlatformRevenueDashboard')
+);
 
 // UI Pages
-import Homepage from './pages/Ui/Homepage';
-import About from './pages/Ui/About';
-import NotFound from './pages/Ui/NotFound';
+const Homepage = lazy(() => import('./pages/Ui/Homepage'));
+const About = lazy(() => import('./pages/Ui/About'));
+const NotFound = lazy(() => import('./pages/Ui/NotFound'));
 
 // Auth Pages
-import Login from './pages/Auth/Login';
-import Register from './pages/Auth/Register';
-import AdminLogin from './pages/Auth/AdminLogin';
-import AdminRegister from './pages/Auth/AdminRegister';
+const Login = lazy(() => import('./pages/Auth/Login'));
+const Register = lazy(() => import('./pages/Auth/Register'));
+const AdminLogin = lazy(() => import('./pages/Auth/AdminLogin'));
+const AdminRegister = lazy(() => import('./pages/Auth/AdminRegister'));
 
 // User Pages
-import UserDashboard from './pages/User/UserDashboard';
-import HostBookings from './pages/Host/HostBookings';
-import EditUserProfile from './pages/User/EditUserProfile';
-import AdminDashboard from './pages/User/AdminDashboard';
-import BecomeHost from './pages/Host/BecomeHost';
+const UserDashboard = lazy(() => import('./pages/User/UserDashboard'));
+const HostBookings = lazy(() => import('./pages/Host/HostBookings'));
+const EditUserProfile = lazy(() => import('./pages/User/EditUserProfile'));
+const AdminDashboard = lazy(() => import('./pages/User/AdminDashboard'));
+const BecomeHost = lazy(() => import('./pages/Host/BecomeHost'));
 
 // Room Pages
-import ViewRoom from './pages/Room/ViewRoom';
-import CreateRoom from './pages/Room/CreateRoom';
-import EditRoom from './pages/Room/EditRoom';
+const ViewRoom = lazy(() => import('./pages/Room/ViewRoom'));
+const CreateRoom = lazy(() => import('./pages/Room/CreateRoom'));
+const EditRoom = lazy(() => import('./pages/Room/EditRoom'));
 
 // Payment Pages
-import PaymentPage from './pages/Payment/PaymentPage';
-import PaymentConfirmation from './pages/Payment/PaymentConfirmation';
+const PaymentPage = lazy(() => import('./pages/Payment/PaymentPage'));
+const PaymentConfirmation = lazy(
+  () => import('./pages/Payment/PaymentConfirmation')
+);
 
 // Host Pages
-import HostProfile from './pages/Host/HostProfile';
+const HostProfile = lazy(() => import('./pages/Host/HostProfile'));
 
 // Verification Pages
-import EmailVerification from './pages/Verification/EmailVerification';
-import EmailSent from './pages/Verification/EmailSent';
-import PasswordResetVerification from './pages/Verification/PasswordResetVerification';
+const EmailVerification = lazy(
+  () => import('./pages/Verification/EmailVerification')
+);
+const EmailSent = lazy(() => import('./pages/Verification/EmailSent'));
+const PasswordResetVerification = lazy(
+  () => import('./pages/Verification/PasswordResetVerification')
+);
+
+// Wrap component with suspense
+const withSuspense = (Component: React.ComponentType): React.ReactNode => (
+  <Suspense fallback={<LoadingSpinner />}>
+    <Component />
+  </Suspense>
+);
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -70,36 +95,33 @@ const router = createBrowserRouter(
       {/* Main Layout Routes */}
       <Route path="/" element={<MainLayout />}>
         {/* Public Routes */}
-        <Route index element={<Homepage />} />
-        <Route path="about" element={<About />} />
-        <Route path="rooms/:roomId" element={<ViewRoom />} />
-        <Route path="/rooms/:roomId/reviews" element={<ViewAllRoomReviews />} />
-        <Route path="hosts/:hostId" element={<HostProfile />} />
-        <Route path="become-host" element={<BecomeHost />} />
+        <Route index element={withSuspense(Homepage)} />
+        <Route path="about" element={withSuspense(About)} />
+        <Route path="rooms/:roomId" element={withSuspense(ViewRoom)} />
+        <Route
+          path="/rooms/:roomId/reviews"
+          element={withSuspense(ViewAllRoomReviews)}
+        />
+        <Route path="hosts/:hostId" element={withSuspense(HostProfile)} />
+        <Route path="become-host" element={withSuspense(BecomeHost)} />
 
         {/* Verification Routes */}
         <Route path="verification">
           <Route
             path="email-verification"
             element={
-              <ProtectedRoute>
-                <EmailVerification />
-              </ProtectedRoute>
+              <ProtectedRoute>{withSuspense(EmailVerification)}</ProtectedRoute>
             }
           />
           <Route
             path="email-sent"
-            element={
-              <ProtectedRoute>
-                <EmailSent />
-              </ProtectedRoute>
-            }
+            element={<ProtectedRoute>{withSuspense(EmailSent)}</ProtectedRoute>}
           />
           <Route
             path="password-reset"
             element={
               <ProtectedRoute>
-                <PasswordResetVerification />
+                {withSuspense(PasswordResetVerification)}
               </ProtectedRoute>
             }
           />
@@ -109,43 +131,35 @@ const router = createBrowserRouter(
         <Route
           path="dashboard"
           element={
-            <ProtectedRoute>
-              <UserDashboard />
-            </ProtectedRoute>
+            <ProtectedRoute>{withSuspense(UserDashboard)}</ProtectedRoute>
           }
         />
         <Route
           path="/dashboard/earnings"
           element={
             <ProtectedRoute requiredRole="host">
-              <EarningsDashboard />
+              {withSuspense(EarningsDashboard)}
             </ProtectedRoute>
           }
         />
         <Route
           path="profile/edit"
           element={
-            <ProtectedRoute>
-              <EditUserProfile />
-            </ProtectedRoute>
+            <ProtectedRoute>{withSuspense(EditUserProfile)}</ProtectedRoute>
           }
         />
 
         {/* Protected Routes - Bookings */}
         <Route
           path="/bookings/view/:bookingId"
-          element={
-            <ProtectedRoute>
-              <ViewBooking />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute>{withSuspense(ViewBooking)}</ProtectedRoute>}
         />
 
         <Route
           path="/host/bookings"
           element={
             <ProtectedRoute requiredRole="host">
-              <HostBookings />
+              {withSuspense(HostBookings)}
             </ProtectedRoute>
           }
         />
@@ -153,9 +167,7 @@ const router = createBrowserRouter(
         <Route
           path="/bookings/all"
           element={
-            <ProtectedRoute>
-              <ViewAllBookings />
-            </ProtectedRoute>
+            <ProtectedRoute>{withSuspense(ViewAllBookings)}</ProtectedRoute>
           }
         />
 
@@ -164,34 +176,26 @@ const router = createBrowserRouter(
           path="/listings/all"
           element={
             <ProtectedRoute requiredRole="host">
-              <ViewAllListings />
+              {withSuspense(ViewAllListings)}
             </ProtectedRoute>
           }
         />
         <Route
           path="/favorites/all"
           element={
-            <ProtectedRoute>
-              <ViewAllFavorites />
-            </ProtectedRoute>
+            <ProtectedRoute>{withSuspense(ViewAllFavorites)}</ProtectedRoute>
           }
         />
 
         {/* Protected Routes - Payments */}
         <Route
           path="payment"
-          element={
-            <ProtectedRoute>
-              <PaymentPage />
-            </ProtectedRoute>
-          }
+          element={<ProtectedRoute>{withSuspense(PaymentPage)}</ProtectedRoute>}
         />
         <Route
           path="payment/confirmation"
           element={
-            <ProtectedRoute>
-              <PaymentConfirmation />
-            </ProtectedRoute>
+            <ProtectedRoute>{withSuspense(PaymentConfirmation)}</ProtectedRoute>
           }
         />
 
@@ -201,7 +205,7 @@ const router = createBrowserRouter(
             path="create"
             element={
               <ProtectedRoute requiredRole="host">
-                <CreateRoom />
+                {withSuspense(CreateRoom)}
               </ProtectedRoute>
             }
           />
@@ -209,7 +213,7 @@ const router = createBrowserRouter(
             path="edit/:roomId"
             element={
               <ProtectedRoute requiredRole="host">
-                <EditRoom />
+                {withSuspense(EditRoom)}
               </ProtectedRoute>
             }
           />
@@ -221,7 +225,7 @@ const router = createBrowserRouter(
             path="dashboard"
             element={
               <ProtectedRoute requiredRole="admin">
-                <AdminDashboard />
+                {withSuspense(AdminDashboard)}
               </ProtectedRoute>
             }
           />
@@ -229,26 +233,32 @@ const router = createBrowserRouter(
             path="revenue"
             element={
               <ProtectedRoute requiredRole="admin">
-                <PlatformRevenueDashboard />
+                {withSuspense(PlatformRevenueDashboard)}
               </ProtectedRoute>
             }
           />
         </Route>
 
         {/* 404 Page */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={withSuspense(NotFound)} />
       </Route>
 
       {/* Auth Layout Routes */}
       <Route path="/auth" element={<AuthLayout />}>
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
-        <Route path="admin-login" element={<AdminLogin />} />
-        <Route path="admin-register" element={<AdminRegister />} />
-        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="login" element={withSuspense(Login)} />
+        <Route path="register" element={withSuspense(Register)} />
+        <Route path="admin-login" element={withSuspense(AdminLogin)} />
+        <Route path="admin-register" element={withSuspense(AdminRegister)} />
+        <Route
+          path="forgot-password"
+          element={withSuspense(ForgotPasswordPage)}
+        />
       </Route>
 
-      <Route path="/reset-password/:token" element={<ForgotPasswordSent />} />
+      <Route
+        path="/reset-password/:token"
+        element={withSuspense(ForgotPasswordSent)}
+      />
     </>
   )
 );

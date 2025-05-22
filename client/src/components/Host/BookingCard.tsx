@@ -14,17 +14,8 @@ import {
   calculateDuration,
   getStatusDisplay,
   getPaymentStatusDisplay,
+  formatTimeTo12Hour,
 } from '../../utils/bookingHelpers';
-
-const formatDateTime = (date: string | Date) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
 
 interface BookingCardProps {
   booking: Booking;
@@ -38,27 +29,6 @@ interface BookingCardProps {
   onMarkPaymentReceived: (id: string) => void;
   onViewReceipt: (booking: Booking) => void;
 }
-
-const convertTo12Hour = (time24: string): string => {
-  if (!time24) return '';
-
-  if (time24.includes('AM') || time24.includes('PM')) {
-    return time24;
-  }
-
-  const [hours, minutes] = time24.split(':');
-  const hour = parseInt(hours, 10);
-
-  if (hour === 0) {
-    return `12:${minutes} AM`;
-  } else if (hour < 12) {
-    return `${hour}:${minutes} AM`;
-  } else if (hour === 12) {
-    return `12:${minutes} PM`;
-  } else {
-    return `${hour - 12}:${minutes} PM`;
-  }
-};
 
 const BookingCard = ({
   booking,
@@ -77,7 +47,7 @@ const BookingCard = ({
 
   // Use the actual booking time values first, and only fall back to defaults if they don't exist
   const checkInTime = booking.checkInTime
-    ? convertTo12Hour(booking.checkInTime)
+    ? formatTimeTo12Hour(booking.checkInTime)
     : roomType === 'stay'
     ? '2:00 PM'
     : roomType === 'conference'
@@ -85,7 +55,7 @@ const BookingCard = ({
     : '10:00 AM';
 
   const checkOutTime = booking.checkOutTime
-    ? convertTo12Hour(booking.checkOutTime)
+    ? formatTimeTo12Hour(booking.checkOutTime)
     : roomType === 'stay'
     ? '12:00 PM'
     : roomType === 'conference'
@@ -123,9 +93,7 @@ const BookingCard = ({
               </span>
               <span className="inline-flex items-center text-xs text-gray-500 dark:text-gray-400">
                 Booked on:{' '}
-                {booking.createdAt
-                  ? formatDateTime(booking.createdAt)
-                  : 'Unknown'}
+                {booking.createdAt ? formatDate(booking.createdAt) : 'Unknown'}
               </span>
             </div>
 

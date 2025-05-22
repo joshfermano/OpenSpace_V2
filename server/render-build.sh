@@ -14,10 +14,6 @@ npm --version
 echo "Installing dependencies..."
 npm install
 
-# Make TypeScript available globally to ensure it's accessible during build
-echo "Installing TypeScript globally..."
-npm install -g typescript
-
 echo "Running TypeScript build..."
 npx tsc -p tsconfig.deploy.json
 

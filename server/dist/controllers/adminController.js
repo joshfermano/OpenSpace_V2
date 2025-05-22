@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteBooking = exports.updateBookingStatus = exports.getAllBookings = exports.approveRejectRoom = exports.getPendingRoomApprovals = exports.initialAdminSetup = exports.checkAdminExists = exports.deleteUser = exports.unbanUser = exports.banUser = exports.createAdmin = exports.verifyUserIdDocument = exports.getPendingIdVerifications = exports.updateUserById = exports.getUserById = exports.getAllUsers = exports.getDashboardSummary = void 0;
+exports.getBannedUsers = exports.deleteBooking = exports.updateBookingStatus = exports.getAllBookings = exports.approveRejectRoom = exports.getPendingRoomApprovals = exports.initialAdminSetup = exports.checkAdminExists = exports.deleteUser = exports.unbanUser = exports.banUser = exports.createAdmin = exports.verifyUserIdDocument = exports.getPendingIdVerifications = exports.updateUserById = exports.getUserById = exports.getAllUsers = exports.getDashboardSummary = void 0;
 const User_1 = __importDefault(require("../models/User"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const Room_1 = __importDefault(require("../models/Room"));
@@ -751,3 +751,37 @@ const deleteBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
     }
 });
 exports.deleteBooking = deleteBooking;
+// Get banned users
+const getBannedUsers = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const admin = ensureAdmin(req, res);
+        if (!admin)
+            return;
+        // Handle pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        // Get banned users (those with active = false)
+        const bannedUsers = yield User_1.default.find({ active: false })
+            .select('-password')
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+        const totalBannedUsers = yield User_1.default.countDocuments({ active: false });
+        res.status(200).json({
+            success: true,
+            count: bannedUsers.length,
+            totalPages: Math.ceil(totalBannedUsers / limit),
+            currentPage: page,
+            data: bannedUsers,
+        });
+    }
+    catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching banned users',
+            error: error.message,
+        });
+    }
+});
+exports.getBannedUsers = getBannedUsers;

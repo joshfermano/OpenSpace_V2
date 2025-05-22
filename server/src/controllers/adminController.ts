@@ -629,7 +629,7 @@ export const initialAdminSetup = async (
       isPhoneVerified: true,
     });
 
-    const userResponse = user.toObject();
+    const userResponse: SafeUserResponse = user.toObject();
     userResponse.password = undefined;
 
     res.status(201).json({

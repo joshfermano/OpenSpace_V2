@@ -72,9 +72,9 @@ const router = express_1.default.Router();
 // Public room routes
 router.get('/', roomController.getRooms);
 router.get('/search', roomController.searchRooms);
+router.get('/host/:hostId', roomController.getRoomsByHost);
 router.get('/:roomId', roomController.getRoomById);
 router.get('/:roomId/availability', roomController.getRoomAvailability);
-router.get('/host/:hostId', roomController.getRoomsByHost);
 // Protected routes - need authentication
 router.use(authMiddleware_1.protect);
 // Host room management

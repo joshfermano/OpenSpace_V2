@@ -50,11 +50,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const isVerified = () => {
     if (!user) return false;
-    return (
-      user.verificationLevel === 'verified' ||
-      user.verificationLevel === 'basic' ||
-      user.role === 'admin'
-    );
+    if (user.role === 'admin') return true;
+    return user.verificationLevel === 'verified';
   };
 
   const checkAuth = useCallback(async (): Promise<boolean> => {
@@ -63,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('Checking authentication status...');
       console.log('Current timestamp:', new Date().toISOString());
 
-      // Call the API which will check cookies
       const response = await authApi.getCurrentUser();
       console.log('Auth check response:', response);
 
@@ -73,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         return true;
       } else {
         console.log('Auth check failed with response:', response);
-        // Only clear user if it's a genuine authentication failure
         if (response.status === 401) {
           console.log('Clearing user due to auth failure');
           setUser(null);
@@ -82,7 +77,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     } catch (err) {
       console.error('Auth check failed with exception:', err);
-      // Don't clear user on network errors as it might be temporary
       return false;
     } finally {
       setIsLoading(false);
@@ -91,13 +85,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  // Initial authentication check when the component mounts
   useEffect(() => {
     const checkAuthOnMount = async () => {
       console.log('Checking authentication on component mount');
       console.log('Current document.cookie:', document.cookie);
 
-      // Add debug information for production debugging
       console.log('Current environment:', process.env.NODE_ENV);
       console.log('Current API URL:', import.meta.env.VITE_API_URL);
       console.log('Current client origin:', window.location.origin);
@@ -109,7 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     checkAuthOnMount();
   }, [checkAuth]);
 
-  // Periodic refresh to keep session alive
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       if (user) {

@@ -48,6 +48,7 @@ router.use(authMiddleware_1.protect);
 router.use(authMiddleware_1.adminOnly);
 // User management
 router.get('/users', adminController.getAllUsers);
+router.get('/users/banned', adminController.getBannedUsers);
 router.get('/users/:userId', adminController.getUserById);
 router.put('/users/:userId', adminController.updateUserById);
 router.post('/users/create-admin', adminController.createAdmin);

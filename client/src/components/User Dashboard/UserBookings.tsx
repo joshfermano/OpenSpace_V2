@@ -8,6 +8,7 @@ import {
   FiChevronRight,
 } from 'react-icons/fi';
 import { FaPesoSign } from 'react-icons/fa6';
+import { formatTimeTo12Hour } from '../../utils/bookingHelpers';
 
 interface Booking {
   id: string;
@@ -56,7 +57,6 @@ const UserBookings = ({ bookings, showAll = false }: UserBookingsProps) => {
     }
   };
 
-  // Format date range for display
   const formatDateRange = (startDate: string, endDate: string) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -66,7 +66,6 @@ const UserBookings = ({ bookings, showAll = false }: UserBookingsProps) => {
       day: 'numeric',
     });
 
-    // If same month and year
     if (
       start.getMonth() === end.getMonth() &&
       start.getFullYear() === end.getFullYear()
@@ -76,7 +75,6 @@ const UserBookings = ({ bookings, showAll = false }: UserBookingsProps) => {
       return `${startFormatted} - ${endDay}, ${endYear}`;
     }
 
-    // If different month or year
     const endFormatted = end.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -86,7 +84,6 @@ const UserBookings = ({ bookings, showAll = false }: UserBookingsProps) => {
     return `${startFormatted} - ${endFormatted}`;
   };
 
-  // Only show two bookings on the dashboard, show all on dedicated page
   const displayedBookings = showAll ? bookings : bookings?.slice(0, 2);
 
   return (
@@ -134,7 +131,8 @@ const UserBookings = ({ bookings, showAll = false }: UserBookingsProps) => {
                     <div>
                       <p className="text-gray-500 dark:text-gray-400">Time</p>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {booking.checkInTime} - {booking.checkOutTime}
+                        {formatTimeTo12Hour(booking.checkInTime)} -{' '}
+                        {formatTimeTo12Hour(booking.checkOutTime)}
                       </p>
                     </div>
                   </div>

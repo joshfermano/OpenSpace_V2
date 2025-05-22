@@ -60,7 +60,10 @@ const getUserById = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             });
             return;
         }
-        if (req.user.role !== 'admin' && req.user.id !== userId) {
+        const isAuthenticated = !!req.user;
+        const isAdmin = isAuthenticated && req.user && req.user.role === 'admin';
+        const isOwnProfile = isAuthenticated && req.user && req.user.id === userId;
+        if (!isAdmin && !isOwnProfile) {
             const publicUser = {
                 _id: user._id,
                 firstName: user.firstName,
@@ -149,7 +152,10 @@ exports.updateProfile = updateProfile;
 const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { currentPassword, newPassword } = req.body;
-        const userId = req.user.id;
+        const currentUser = getUserFromRequest(req, res);
+        if (!currentUser)
+            return;
+        const userId = currentUser._id;
         if (!currentPassword || !newPassword) {
             res.status(400).json({
                 success: false,
@@ -195,7 +201,10 @@ exports.changePassword = changePassword;
 // Save a room to favorites
 const saveRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const userId = req.user.id;
+        const currentUser = getUserFromRequest(req, res);
+        if (!currentUser)
+            return;
+        const userId = currentUser._id;
         const { roomId } = req.body;
         if (!roomId) {
             res.status(400).json({
@@ -243,7 +252,10 @@ exports.saveRoom = saveRoom;
 // Remove a room from favorites
 const unsaveRoom = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const userId = req.user.id;
+        const currentUser = getUserFromRequest(req, res);
+        if (!currentUser)
+            return;
+        const userId = currentUser._id;
         const { roomId } = req.params;
         if (!roomId) {
             res.status(400).json({
@@ -280,7 +292,10 @@ exports.unsaveRoom = unsaveRoom;
 // Get saved rooms
 const getSavedRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const userId = req.user.id;
+        const currentUser = getUserFromRequest(req, res);
+        if (!currentUser)
+            return;
+        const userId = currentUser._id;
         const user = yield User_1.default.findById(userId);
         if (!user) {
             res.status(404).json({
@@ -313,7 +328,10 @@ exports.getSavedRooms = getSavedRooms;
 // Get user dashboard data
 const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const userId = req.user.id;
+        const currentUser = getUserFromRequest(req, res);
+        if (!currentUser)
+            return;
+        const userId = currentUser._id;
         const user = yield User_1.default.findById(userId);
         if (!user) {
             res.status(404).json({
@@ -451,7 +469,10 @@ const uploadProfileImage = (req, res) => __awaiter(void 0, void 0, void 0, funct
             });
             return;
         }
-        const userId = req.user.id;
+        const currentUser = getUserFromRequest(req, res);
+        if (!currentUser)
+            return;
+        const userId = currentUser._id;
         const user = yield User_1.default.findById(userId);
         if (!user) {
             res.status(404).json({

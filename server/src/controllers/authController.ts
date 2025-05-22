@@ -1,10 +1,12 @@
 import { Request, Response, CookieOptions } from 'express';
 import jwt from 'jsonwebtoken';
-import { sendPasswordResetEmail } from '../services/emailService';
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from '../services/emailService';
 import crypto from 'crypto';
 import User, { IUser } from '../models/User';
 import OtpVerification from '../models/OtpVerification';
-import { sendVerificationEmail } from '../services/emailService';
 import mongoose from 'mongoose';
 import {
   sanitizeInput,
@@ -13,8 +15,15 @@ import {
   addDelay,
 } from '../utils/securityUtils';
 import 'dotenv/config';
+import { uploadBase64Image } from '../services/imageService';
 
 type AuthRequest = Request;
+
+// Define SafeUserResponse interface
+interface SafeUserResponse {
+  password?: string;
+  [key: string]: any;
+}
 
 function ensureAuthenticated(req: AuthRequest, res: Response): IUser | null {
   if (!req.user) {
@@ -34,17 +43,16 @@ const generateToken = (user: IUser): string => {
     throw new Error('JWT_SECRET is not defined in environment variables');
   }
 
-  return jwt.sign(
-    {
-      userId: user._id,
-      email: user.email,
-      role: user.role,
-    },
-    secret,
-    {
-      expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-    }
-  );
+  const payload = {
+    userId: user._id.toHexString(),
+    email: user.email,
+    role: user.role,
+  };
+
+  return (jwt.sign as any)(payload, secret, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
+    algorithm: 'HS256',
+  });
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -123,8 +131,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       path: '/',
     };
 
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    const userResponse: SafeUserResponse = user.toObject();
+    userResponse.password = undefined;
 
     await sendInitialVerificationEmail(user._id, user.email, user.firstName);
 
@@ -215,8 +223,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       sameSite: cookieOptions.sameSite,
     });
 
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    const userResponse: SafeUserResponse = user.toObject();
+    userResponse.password = undefined;
 
     res.status(200).cookie('token', token, cookieOptions).json({
       success: true,
@@ -493,14 +501,12 @@ export const uploadIdVerification = async (
     if (!user) return;
 
     const userId = user._id;
-    const idType = sanitizeInput(req.body.idType);
-    const idNumber = sanitizeInput(req.body.idNumber);
-    const idImage = req.body.idImage;
+    const { idType, idNumber, idImage, businessDocument } = req.body;
 
     if (!idType || !idNumber || !idImage) {
       res.status(400).json({
         success: false,
-        message: 'ID type, number, and image are required',
+        message: 'ID type, number, and image (base64) are required',
       });
       return;
     }
@@ -514,13 +520,64 @@ export const uploadIdVerification = async (
       return;
     }
 
-    userDoc.identificationDocument = {
-      idType,
-      idNumber,
+    // Upload ID image
+    const idImageUrl = await uploadBase64Image(
       idImage,
+      'verifications',
+      `user-${userId}-id`
+    );
+    if (!idImageUrl) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload ID image',
+      });
+      return;
+    }
+
+    userDoc.identificationDocument = {
+      idType: sanitizeInput(idType),
+      idNumber: sanitizeInput(idNumber),
+      idImage: idImageUrl,
       uploadDate: new Date(),
       verificationStatus: 'pending',
     };
+
+    // Handle business document if provided
+    if (businessDocument) {
+      const { certificateType, certificateNumber, certificateImage } =
+        businessDocument;
+      if (certificateType && certificateNumber && certificateImage) {
+        const certificateImageUrl = await uploadBase64Image(
+          certificateImage,
+          'verifications',
+          `user-${userId}-business-cert`
+        );
+        if (!certificateImageUrl) {
+          res.status(500).json({
+            success: false,
+            message: 'Failed to upload business certificate image',
+          });
+          return;
+        }
+        if (userDoc.identificationDocument) {
+          // Ensure identificationDocument exists
+          userDoc.identificationDocument.businessDocument = {
+            certificateType: sanitizeInput(certificateType),
+            certificateNumber: sanitizeInput(certificateNumber),
+            certificateImage: certificateImageUrl,
+            uploadDate: new Date(),
+          };
+        }
+      } else if (certificateType || certificateNumber || certificateImage) {
+        // If some business doc fields are present but not all, it's an error
+        res.status(400).json({
+          success: false,
+          message:
+            'All business document fields (certificateType, certificateNumber, certificateImage) are required if businessDocument is provided',
+        });
+        return;
+      }
+    }
 
     await userDoc.save();
 
@@ -528,8 +585,10 @@ export const uploadIdVerification = async (
       success: true,
       message:
         'ID verification document uploaded successfully, pending approval',
+      data: userDoc.identificationDocument, // Return the updated document info
     });
   } catch (error: any) {
+    console.error('Error uploading ID verification:', error);
     res.status(500).json({
       success: false,
       message: 'Error uploading ID verification',
