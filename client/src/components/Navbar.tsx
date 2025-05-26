@@ -8,8 +8,8 @@ import { IoPersonSharp } from 'react-icons/io5';
 import { IoLogOut } from 'react-icons/io5';
 import { MdAdminPanelSettings } from 'react-icons/md';
 import { useAuth } from '../contexts/AuthContext';
-import logo_black from '../assets/logo_black.jpg';
-import logo_white from '../assets/logo_white.jpg';
+import logo_black from '../assets/logo_black.png';
+import logo_white from '../assets/logo_white.png';
 
 const Navbar = () => {
   const [darkMode, setDarkMode] = useState<boolean>(false);
