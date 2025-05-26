@@ -59,7 +59,6 @@ const swagger_1 = require("./swagger");
 const securityMiddleware_1 = require("./middlewares/securityMiddleware");
 require("dotenv/config");
 const promises_1 = __importDefault(require("fs/promises"));
-// Import routes
 const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 const userRoutes_1 = __importDefault(require("./routes/userRoutes"));
@@ -69,11 +68,70 @@ const reviewRoutes_1 = __importDefault(require("./routes/reviewRoutes"));
 const earningsRoutes_1 = __importDefault(require("./routes/earningsRoutes"));
 const emailVerificationRoutes_1 = __importDefault(require("./routes/emailVerificationRoutes"));
 const adminEarningsRoutes_1 = __importDefault(require("./routes/adminEarningsRoutes"));
-// Create Express app
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
-// Security middlewares
-// Set security HTTP headers with enhanced CSP
+const corsOptions = {
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            'https://openspace-reserve.vercel.app',
+            'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app',
+            'https://openspace-reserve-fyaghgx05-josh-khovick-fermanos-projects.vercel.app',
+            'https://openspace-api.onrender.com',
+            /^https:\/\/openspace-reserve.*\.vercel\.app$/,
+        ];
+        if (process.env.NODE_ENV !== 'production') {
+            allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
+        }
+        if (process.env.CLIENT_URL) {
+            allowedOrigins.push(process.env.CLIENT_URL);
+        }
+        console.log('Request origin:', origin);
+        console.log('Allowed origins:', allowedOrigins);
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+        const normalizedOrigin = origin.endsWith('/')
+            ? origin.slice(0, -1)
+            : origin;
+        const isAllowed = allowedOrigins.some((allowedOrigin) => {
+            if (allowedOrigin instanceof RegExp) {
+                return allowedOrigin.test(normalizedOrigin);
+            }
+            const normalized = allowedOrigin.endsWith('/')
+                ? allowedOrigin.slice(0, -1)
+                : allowedOrigin;
+            return normalized === normalizedOrigin;
+        });
+        if (isAllowed) {
+            callback(null, true);
+        }
+        else {
+            console.error(`Origin ${origin} not allowed by CORS`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Cache-Control',
+        'Pragma',
+        'Origin',
+        'Accept',
+        'X-Content-Type-Options',
+        'X-Frame-Options',
+        'X-XSS-Protection',
+    ],
+    exposedHeaders: ['Set-Cookie'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+    maxAge: 86400,
+};
+app.use((0, cors_1.default)(corsOptions));
+app.options('*', (0, cors_1.default)(corsOptions));
 app.use((0, helmet_1.default)({
     contentSecurityPolicy: {
         directives: {
@@ -83,6 +141,8 @@ app.use((0, helmet_1.default)({
                 "'self'",
                 'https://*.supabase.co',
                 'https://openspace-api.onrender.com',
+                'https://openspace-reserve.vercel.app',
+                'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app',
             ],
             imgSrc: [
                 "'self'",
@@ -106,7 +166,16 @@ app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
+    const origin = _req.headers.origin;
+    if (origin &&
+        (origin.includes('openspace-reserve') ||
+            origin === 'https://openspace-api.onrender.com' ||
+            (process.env.NODE_ENV !== 'production' && origin.includes('localhost')))) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Cache-Control,Pragma,Origin,Accept');
+    }
     next();
 });
 app.use(securityMiddleware_1.sanitizeRequest);
@@ -116,6 +185,7 @@ const limiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many requests from this IP, please try again after 15 minutes',
+    skip: (req) => req.method === 'OPTIONS',
 });
 app.use('/api/', limiter);
 const authLimiter = (0, express_rate_limit_1.default)({
@@ -124,62 +194,10 @@ const authLimiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many login attempts, please try again after an hour',
+    skip: (req) => req.method === 'OPTIONS',
 });
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
-const corsOptions = {
-    origin: (origin, callback) => {
-        const allowedOrigins = [
-            'https://openspace-reserve.vercel.app',
-            'https://openspace-v2.vercel.app',
-            'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app',
-            'https://openspace-reserve-fyaghgx05-josh-khovick-fermanos-projects.vercel.app',
-            'https://openspace-api.onrender.com',
-        ];
-        if (process.env.NODE_ENV !== 'production') {
-            allowedOrigins.push('http://localhost:5173', 'http://localhost:3000');
-        }
-        if (process.env.CLIENT_URL) {
-            allowedOrigins.push(process.env.CLIENT_URL);
-        }
-        console.log('Request origin:', origin);
-        console.log('Allowed origins:', allowedOrigins);
-        if (!origin) {
-            callback(null, true);
-            return;
-        }
-        const normalizedOrigin = origin.endsWith('/')
-            ? origin.slice(0, -1)
-            : origin;
-        if (allowedOrigins.some((allowedOrigin) => {
-            const normalized = allowedOrigin.endsWith('/')
-                ? allowedOrigin.slice(0, -1)
-                : allowedOrigin;
-            return normalized === normalizedOrigin;
-        })) {
-            callback(null, true);
-        }
-        else {
-            console.error(`Origin ${origin} not allowed by CORS`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'Cache-Control',
-        'Pragma',
-        'Origin',
-        'Accept',
-    ],
-    exposedHeaders: ['Set-Cookie'],
-    preflightContinue: false,
-    optionsSuccessStatus: 204,
-};
-app.use((0, cors_1.default)(corsOptions));
 app.use((0, cookie_parser_1.default)());
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, 'uploads')));
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));
@@ -189,7 +207,8 @@ app.use(express_1.default.static(path_1.default.join(__dirname, '../uploads')));
 app.use((req, res, next) => {
     const originalCookie = res.cookie.bind(res);
     res.cookie = function (name, val, options) {
-        const cookieOptions = Object.assign({ sameSite: 'none', secure: true, httpOnly: true, path: '/', maxAge: 30 * 24 * 60 * 60 * 1000 }, options);
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cookieOptions = Object.assign({ sameSite: isProduction ? 'none' : 'lax', secure: isProduction, httpOnly: true, path: '/', maxAge: 30 * 24 * 60 * 60 * 1000 }, options);
         console.log(`Setting cookie: ${name} with options:`, JSON.stringify(cookieOptions));
         console.log(`Current environment: ${process.env.NODE_ENV}`);
         console.log(`Request origin: ${req.headers.origin}`);
@@ -221,6 +240,14 @@ app.use((req, _res, next) => {
     next();
 });
 app.use(securityMiddleware_1.rateLimitErrorHandler);
+app.get('/api/health', (_req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        message: 'Server is running',
+        cors: 'enabled',
+        timestamp: new Date().toISOString(),
+    });
+});
 app.use('/api/admin', adminRoutes_1.default);
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/users', userRoutes_1.default);
@@ -244,9 +271,6 @@ if (process.env.NODE_ENV !== 'production' ||
     });
 }
 app.use(securityMiddleware_1.globalErrorHandler);
-app.get('/api/health', (_req, res) => {
-    res.status(200).json({ status: 'OK', message: 'Server is running' });
-});
 const createUploadDirs = () => __awaiter(void 0, void 0, void 0, function* () {
     const dirs = [
         './src/uploads',
