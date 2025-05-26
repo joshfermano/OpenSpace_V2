@@ -28,9 +28,25 @@ export const rateLimitErrorHandler = (
   next: NextFunction
 ): void => {
   if (err && err.statusCode === 429) {
+    const retryAfter = err.retryAfter || 900; // Default 15 minutes
+    const limit = err.limit || 100;
+
+    res.set({
+      'Retry-After': retryAfter.toString(),
+      'X-RateLimit-Limit': limit.toString(),
+      'X-RateLimit-Remaining': '0',
+      'X-RateLimit-Reset': new Date(
+        Date.now() + retryAfter * 1000
+      ).toISOString(),
+    });
+
     res.status(429).json({
       success: false,
-      message: 'Too many requests, please try again later.',
+      error: 'Rate limit exceeded',
+      message: 'Too many requests from this IP, please try again later.',
+      retryAfter: retryAfter,
+      limit: limit,
+      resetTime: new Date(Date.now() + retryAfter * 1000).toISOString(),
     });
   } else {
     next(err);

@@ -1,0 +1,155 @@
+/* Smooth infinite scroll optimizations */
+.infinite-scroll-container {
+    scroll-behavior: smooth;
+}
+
+/* Enhanced loading animations */
+@keyframes shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+.dark .shimmer {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200px 100%;
+}
+
+/* Smooth card entrance animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Staggered animations for room cards */
+.room-card:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.room-card:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.room-card:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.room-card:nth-child(4) {
+    animation-delay: 0.4s;
+}
+
+.room-card:nth-child(5) {
+    animation-delay: 0.5s;
+}
+
+.room-card:nth-child(6) {
+    animation-delay: 0.6s;
+}
+
+.room-card:nth-child(7) {
+    animation-delay: 0.7s;
+}
+
+.room-card:nth-child(8) {
+    animation-delay: 0.8s;
+}
+
+/* Loading skeleton improvements */
+@keyframes pulse-smooth {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.pulse-smooth {
+    animation: pulse-smooth 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth transitions for filter changes */
+.filter-transition {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced hover effects */
+.room-card-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.room-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* Loading spinner improvements */
+@keyframes spin-smooth {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spin-smooth {
+    animation: spin-smooth 1s linear infinite;
+}
+
+/* Scroll indicator */
+.scroll-indicator {
+    position: relative;
+    overflow: hidden;
+}
+
+.scroll-indicator::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+    animation: shimmer 2s infinite;
+    width: 100%;
+}
+
+/* Performance optimizations */
+.will-change-auto {
+    will-change: auto;
+}
+
+.will-change-transform {
+    will-change: transform;
+}
+
+.gpu-acceleration {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+}

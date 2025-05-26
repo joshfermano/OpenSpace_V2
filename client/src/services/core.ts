@@ -1,4 +1,9 @@
-import { parseApiError, withErrorHandling } from './errorHandlingService';
+import {
+  parseApiError,
+  withErrorHandling,
+  retryWithBackoff,
+  shouldDelayRequest,
+} from './errorHandlingService';
 
 const isDev = import.meta.env.MODE !== 'production';
 
@@ -13,6 +18,10 @@ console.log(`Window origin: ${window.location.origin}`);
 // Cache for response data
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+// Request throttling to prevent rapid successive calls
+const requestThrottle = new Map<string, number>();
+const THROTTLE_DELAY = 100; // 100ms between similar requests
 
 // Check if we should use cached data
 const useCachedData = (cacheKey: string, maxAge = CACHE_DURATION): any => {
@@ -36,6 +45,20 @@ const createCacheKey = (endpoint: string, options?: RequestInit): string => {
   return `${method}:${endpoint}:${body}`;
 };
 
+// Throttle similar requests
+const shouldThrottleRequest = (cacheKey: string): number => {
+  const lastRequestTime = requestThrottle.get(cacheKey) || 0;
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+
+  if (timeSinceLastRequest < THROTTLE_DELAY) {
+    return THROTTLE_DELAY - timeSinceLastRequest;
+  }
+
+  requestThrottle.set(cacheKey, now);
+  return 0;
+};
+
 export const fetchPublic = async (
   endpoint: string,
   options: RequestInit & { cache?: boolean; cacheMaxAge?: number } = {}
@@ -57,6 +80,21 @@ export const fetchPublic = async (
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       });
+  }
+
+  // Throttle similar requests to prevent rapid calls
+  const throttleDelay = shouldThrottleRequest(cacheKey);
+  if (throttleDelay > 0) {
+    await new Promise((resolve) => setTimeout(resolve, throttleDelay));
+  }
+
+  // Check for rate limiting delays
+  const rateLimitDelay = shouldDelayRequest(endpoint);
+  if (rateLimitDelay > 0) {
+    console.log(
+      `Delaying request to ${endpoint} for ${rateLimitDelay}ms due to rate limiting`
+    );
+    await new Promise((resolve) => setTimeout(resolve, rateLimitDelay));
   }
 
   const defaultHeaders: HeadersInit = {
@@ -163,23 +201,56 @@ export const fetchWithAuth = async (
   }
 };
 
-// Helper functions to wrap API calls with error handling
+// Helper functions to wrap API calls with error handling and retries
 export const safePublicFetch = <T>(
   endpoint: string,
   options?: RequestInit & { cache?: boolean; cacheMaxAge?: number }
 ) => {
-  return withErrorHandling<T>(async () => {
-    const response = await fetchPublic(endpoint, options);
-    return (await response.json()) as T;
-  });
+  return withErrorHandling<T>(
+    async () => {
+      const response = await fetchPublic(endpoint, options);
+      return (await response.json()) as T;
+    },
+    endpoint,
+    true
+  );
 };
 
 export const safeAuthFetch = <T>(
   endpoint: string,
   options?: RequestInit & { cache?: boolean; cacheMaxAge?: number }
 ) => {
-  return withErrorHandling<T>(async () => {
-    const response = await fetchWithAuth(endpoint, options);
-    return (await response.json()) as T;
-  });
+  return withErrorHandling<T>(
+    async () => {
+      const response = await fetchWithAuth(endpoint, options);
+      return (await response.json()) as T;
+    },
+    endpoint,
+    true
+  );
+};
+
+// Enhanced fetch functions with built-in retry logic for 429 errors
+export const fetchPublicWithRetry = async (
+  endpoint: string,
+  options: RequestInit & { cache?: boolean; cacheMaxAge?: number } = {},
+  maxRetries = 3
+) => {
+  return retryWithBackoff(
+    () => fetchPublic(endpoint, options),
+    endpoint,
+    maxRetries
+  );
+};
+
+export const fetchAuthWithRetry = async (
+  endpoint: string,
+  options: RequestInit & { cache?: boolean; cacheMaxAge?: number } = {},
+  maxRetries = 3
+) => {
+  return retryWithBackoff(
+    () => fetchWithAuth(endpoint, options),
+    endpoint,
+    maxRetries
+  );
 };

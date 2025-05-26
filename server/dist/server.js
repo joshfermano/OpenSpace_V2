@@ -179,25 +179,65 @@ app.use((_req, res, next) => {
     next();
 });
 app.use(securityMiddleware_1.sanitizeRequest);
+// More reasonable rate limiting for production
 const limiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 300 : 1000, // 300 requests per 15 minutes in production
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many requests from this IP, please try again after 15 minutes',
+    message: {
+        error: 'Too many requests from this IP',
+        retryAfter: 15 * 60, // seconds
+        limit: process.env.NODE_ENV === 'production' ? 300 : 1000,
+    },
     skip: (req) => req.method === 'OPTIONS',
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false,
 });
 app.use('/api/', limiter);
+// Separate limiters for different route types
 const authLimiter = (0, express_rate_limit_1.default)({
-    windowMs: 60 * 60 * 1000,
-    max: 10,
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: process.env.NODE_ENV === 'production' ? 50 : 100, // 50 attempts per hour in production
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many login attempts, please try again after an hour',
+    message: {
+        error: 'Too many authentication attempts from this IP',
+        retryAfter: 60 * 60, // seconds
+        limit: process.env.NODE_ENV === 'production' ? 50 : 100,
+    },
     skip: (req) => req.method === 'OPTIONS',
 });
+const roomsLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    max: process.env.NODE_ENV === 'production' ? 200 : 500, // 200 requests per 5 minutes for room operations
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too many room requests from this IP',
+        retryAfter: 5 * 60, // seconds
+        limit: process.env.NODE_ENV === 'production' ? 200 : 500,
+    },
+    skip: (req) => req.method === 'OPTIONS',
+});
+const bookingLimiter = (0, express_rate_limit_1.default)({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: process.env.NODE_ENV === 'production' ? 100 : 200, // 100 booking operations per 15 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too many booking requests from this IP',
+        retryAfter: 15 * 60, // seconds
+        limit: process.env.NODE_ENV === 'production' ? 100 : 200,
+    },
+    skip: (req) => req.method === 'OPTIONS',
+});
+// Apply specific limiters to different routes
 app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/reset-password', authLimiter);
+app.use('/api/rooms', roomsLimiter);
+app.use('/api/bookings', bookingLimiter);
 app.use((0, cookie_parser_1.default)());
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, 'uploads')));
 app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../public/uploads')));

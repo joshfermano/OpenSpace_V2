@@ -1,4 +1,4 @@
-import { API_URL, fetchWithAuth } from './core';
+import { API_URL, fetchWithAuth, fetchAuthWithRetry } from './core';
 
 export const authApi = {
   register: async (userData: FormData | any) => {
@@ -17,19 +17,15 @@ export const authApi = {
         requestBody = JSON.stringify(userData);
       }
 
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      // Use retry logic for registration requests
+      const response = await fetchAuthWithRetry('/api/auth/register', {
         method: 'POST',
-        credentials: 'include',
         headers,
         body: requestBody,
       });
 
       const data = await response.json();
       console.log('Registration response:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
-      }
 
       return data;
     } catch (error) {
@@ -44,17 +40,11 @@ export const authApi = {
         `Attempting login for email: ${email} to ${API_URL}/api/auth/login`
       );
 
-      // In development, use a different approach for localhost
-      const url = `${API_URL}/api/auth/login`;
-      console.log(`Login URL: ${url}`);
-
-      const response = await fetch(url, {
+      // Use retry logic for login requests
+      const response = await fetchAuthWithRetry('/api/auth/login', {
         method: 'POST',
-        credentials: 'include',
-        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
-          Origin: window.location.origin,
         },
         body: JSON.stringify({
           email: email.toLowerCase().trim(),
@@ -62,15 +52,8 @@ export const authApi = {
         }),
       });
 
-      console.log('Login response status:', response.status);
-      console.log('Login response headers:', [...response.headers.entries()]);
-
       const data = await response.json();
       console.log('Login response data:', data);
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
 
       return data;
     } catch (error) {

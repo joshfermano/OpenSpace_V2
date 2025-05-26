@@ -1,4 +1,4 @@
-import { fetchWithAuth, fetchPublic } from './core';
+import { fetchWithAuth, fetchPublic, fetchPublicWithRetry } from './core';
 import { API_URL } from './core';
 
 export const roomApi = {
@@ -7,7 +7,13 @@ export const roomApi = {
       const queryString = new URLSearchParams(
         params as Record<string, string>
       ).toString();
-      const response = await fetchWithAuth(`/api/rooms?${queryString}`);
+
+      // Use the enhanced fetch with retry for room requests
+      const response = await fetchPublicWithRetry(`/api/rooms?${queryString}`, {
+        // cache: true, // Cache for 2 minutes - removed as not supported
+        // cacheMaxAge: 2 * 60 * 1000,
+      });
+
       const data = await response.json();
       return data;
     } catch (error) {

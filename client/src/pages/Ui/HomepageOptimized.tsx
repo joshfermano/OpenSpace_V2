@@ -72,7 +72,7 @@ interface PaginationState {
   loadingMore: boolean;
 }
 
-const Homepage = () => {
+const HomepageOptimized = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -370,6 +370,7 @@ const Homepage = () => {
     loadMore,
     error,
   ]);
+
   return (
     <section className="font-poppins p-4 bg-light text-darkBlue dark:bg-darkBlue dark:text-light transition-all duration-300">
       <header className="max-w-7xl mx-auto">
@@ -518,4 +519,4 @@ const Homepage = () => {
   );
 };
 
-export default Homepage;
+export default HomepageOptimized;

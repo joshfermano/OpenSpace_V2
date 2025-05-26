@@ -86,7 +86,6 @@ const AdminDashboard = () => {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [confirmAction, setConfirmAction] = useState<Action | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
   // Data states
   const [users, setUsers] = useState<any[]>([]);
   const [verifications, setVerifications] = useState<any[]>([]);
@@ -94,6 +93,23 @@ const AdminDashboard = () => {
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [filteredVerifications, setFilteredVerifications] = useState<any[]>([]);
   const [filteredRooms, setFilteredRooms] = useState<any[]>([]);
+
+  // Pagination states
+  const [usersPagination, setUsersPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+  });
+  const [verificationsPagination, setVerificationsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+  });
+  const [roomsPagination, setRoomsPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalCount: 0,
+  });
 
   // Dashboard summary
   const [summaryData, setSummaryData] = useState({
@@ -105,29 +121,187 @@ const AdminDashboard = () => {
     hostCount: 0,
   });
 
-  useEffect(() => {
-    const fetchPendingRooms = async () => {
-      try {
-        const response = await adminApi.getPendingRoomApprovals();
+  // Pagination handlers
+  const handleUsersPageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= usersPagination.totalPages) {
+      setUsersPagination((prev) => ({ ...prev, currentPage: newPage }));
+    }
+  };
 
-        if (response.success) {
-          console.log('API Response:', response);
+  const handleVerificationsPageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= verificationsPagination.totalPages) {
+      setVerificationsPagination((prev) => ({ ...prev, currentPage: newPage }));
+    }
+  };
+  const handleRoomsPageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= roomsPagination.totalPages) {
+      setRoomsPagination((prev) => ({ ...prev, currentPage: newPage }));
+    }
+  };
 
-          // Set the rooms directly from the data property
-          setRooms(response.data || []);
-        } else {
-          console.error(
-            'Failed to fetch pending room approvals:',
-            response.message
-          );
-        }
-      } catch (error) {
-        console.error('Error fetching pending room approvals:', error);
+  // Pagination component
+  const renderPagination = (
+    currentPage: number,
+    totalPages: number,
+    onPageChange: (page: number) => void
+  ) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex justify-center mt-6 gap-2 pb-4">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+          Previous
+        </button>
+        <span className="px-4 py-2 text-gray-700 dark:text-white">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+          Next
+        </button>
+      </div>
+    );
+  };
+
+  // Fetch functions with pagination
+  const fetchUsers = async (page = 1) => {
+    try {
+      console.log('Fetching users for page:', page);
+      const usersResponse = await adminApi.getUsers(page, 10);
+      if (usersResponse.success) {
+        const formattedUsers = usersResponse.data.map((user: any) => ({
+          id: user._id,
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          status: user.active === false ? 'banned' : 'active',
+          joinDate: user.createdAt,
+          verificationStatus:
+            user.identificationDocument?.verificationStatus || 'not_submitted',
+          idType: user.identificationDocument?.idType || '',
+          documentUrl: user.identificationDocument?.idImage || '',
+          imageUrl: user.profileImage,
+          rooms: user.rooms?.length || 0,
+        }));
+
+        setUsers(formattedUsers);
+        setFilteredUsers(formattedUsers);
+        setUsersPagination({
+          currentPage: usersResponse.currentPage || page,
+          totalPages: usersResponse.totalPages || 1,
+          totalCount: usersResponse.count || formattedUsers.length,
+        });
+        console.log(
+          'Users loaded:',
+          formattedUsers.length,
+          'Total pages:',
+          usersResponse.totalPages
+        );
       }
-    };
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
-    fetchPendingRooms();
-  }, []);
+  const fetchVerifications = async (page = 1) => {
+    try {
+      console.log('Fetching verifications for page:', page);
+      const verificationsResponse = await adminApi.getPendingIdVerifications();
+      if (verificationsResponse.success) {
+        const formattedVerifications = verificationsResponse.data
+          .filter((verification: any) => verification.role !== 'admin')
+          .map((verification: any) => ({
+            id: verification._id,
+            userId: verification._id,
+            userName: `${verification.firstName} ${verification.lastName}`,
+            userEmail: verification.email,
+            idType: verification.identificationDocument?.idType || 'Unknown',
+            submissionDate:
+              verification.identificationDocument?.uploadDate ||
+              new Date().toISOString(),
+            status:
+              verification.identificationDocument?.verificationStatus ||
+              'pending',
+            documentUrl: verification.identificationDocument?.idImage || '',
+            imageUrl: verification.profileImage,
+          }));
+
+        setVerifications(formattedVerifications);
+        setFilteredVerifications(formattedVerifications);
+        // Note: getPendingIdVerifications doesn't support pagination yet, so we'll use simple pagination
+        const itemsPerPage = 10;
+        const totalPages = Math.ceil(
+          formattedVerifications.length / itemsPerPage
+        );
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedData = formattedVerifications.slice(
+          startIndex,
+          endIndex
+        );
+
+        setFilteredVerifications(paginatedData);
+        setVerificationsPagination({
+          currentPage: page,
+          totalPages: totalPages,
+          totalCount: formattedVerifications.length,
+        });
+        console.log('Verifications loaded:', formattedVerifications.length);
+      }
+    } catch (error) {
+      console.error('Error fetching verifications:', error);
+    }
+  };
+
+  const fetchRooms = async (page = 1) => {
+    try {
+      console.log('Fetching rooms for page:', page);
+      const response = await adminApi.getPendingRoomApprovals();
+      if (response.success) {
+        const roomsData = response.data || [];
+        setRooms(roomsData);
+
+        // Simple pagination for rooms since API might not support it yet
+        const itemsPerPage = 10;
+        const totalPages = Math.ceil(roomsData.length / itemsPerPage);
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const paginatedData = roomsData.slice(startIndex, endIndex);
+
+        setFilteredRooms(paginatedData);
+        setRoomsPagination({
+          currentPage: page,
+          totalPages: totalPages,
+          totalCount: roomsData.length,
+        });
+        console.log('Rooms loaded:', roomsData.length);
+      } else {
+        console.error(
+          'Failed to fetch pending room approvals:',
+          response.message
+        );
+      }
+    } catch (error) {
+      console.error('Error fetching pending room approvals:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRooms(roomsPagination.currentPage);
+  }, [roomsPagination.currentPage]);
+
+  useEffect(() => {
+    fetchUsers(usersPagination.currentPage);
+  }, [usersPagination.currentPage]);
+
+  useEffect(() => {
+    fetchVerifications(verificationsPagination.currentPage);
+  }, [verificationsPagination.currentPage]);
 
   // Fetch data from API
   useEffect(() => {
@@ -157,89 +331,12 @@ const AdminDashboard = () => {
           );
         }
 
-        // Fetch users
-        console.log('Fetching users...');
-        const usersResponse = await adminApi.getUsers();
-        if (usersResponse.success) {
-          const formattedUsers = usersResponse.data.map((user: any) => ({
-            id: user._id,
-            name: `${user.firstName} ${user.lastName}`,
-            email: user.email,
-            role: user.role,
-            status: user.active === false ? 'banned' : 'active',
-            joinDate: user.createdAt,
-            verificationStatus:
-              user.identificationDocument?.verificationStatus ||
-              'not_submitted',
-            idType: user.identificationDocument?.idType || '',
-            documentUrl: user.identificationDocument?.idImage || '',
-            imageUrl: user.profileImage,
-            rooms: user.rooms?.length || 0,
-          }));
-
-          setUsers(formattedUsers);
-          setFilteredUsers(formattedUsers);
-          console.log('Users loaded:', formattedUsers.length);
-        }
-
-        // Fetch pending ID verifications - Filter out admin users
-        console.log('Fetching ID verifications...');
-        const verificationsResponse =
-          await adminApi.getPendingIdVerifications();
-        if (verificationsResponse.success) {
-          const formattedVerifications = verificationsResponse.data
-            .filter((verification: any) => verification.role !== 'admin')
-            .map((verification: any) => ({
-              id: verification._id,
-              userId: verification._id,
-              userName: `${verification.firstName} ${verification.lastName}`,
-              userEmail: verification.email,
-              idType: verification.identificationDocument?.idType || 'Unknown',
-              submissionDate:
-                verification.identificationDocument?.uploadDate ||
-                new Date().toISOString(),
-              status:
-                verification.identificationDocument?.verificationStatus ||
-                'pending',
-              documentUrl: verification.identificationDocument?.idImage || '',
-              imageUrl: verification.profileImage,
-            }));
-
-          setVerifications(formattedVerifications);
-          setFilteredVerifications(formattedVerifications);
-          console.log('Verifications loaded:', formattedVerifications.length);
-        }
-
-        // Fetch pending room approvals
-        console.log('Fetching room approvals...');
-        const roomsResponse = await adminApi.getPendingRoomApprovals();
-        if (roomsResponse.success) {
-          const formattedRooms = roomsResponse.data.map((room: any) => ({
-            id: room._id,
-            name: room.title,
-            location: room.location.city + ', ' + room.location.state,
-            category: room.category,
-            price: room.pricing.hourlyRate,
-            capacity: room.capacity,
-            description: room.description,
-            amenities: room.amenities,
-            images: room.images.map((img: string) =>
-              img.startsWith('http')
-                ? img
-                : `${import.meta.env.VITE_API_URL || ''}${img}`
-            ),
-            hostId: room.host._id,
-            hostName: `${room.host.firstName} ${room.host.lastName}`,
-            hostImage: room.host.profileImage,
-            createdAt: room.createdAt,
-            status: room.status,
-          }));
-          setRooms(formattedRooms);
-          setFilteredRooms(formattedRooms);
-          console.log('Rooms loaded:', formattedRooms.length);
-        }
+        // Initial data fetch for all tabs
+        await fetchUsers(1);
+        await fetchVerifications(1);
+        await fetchRooms(1);
       } catch (error) {
-        console.error('Error fetching admin dashboard data:', error);
+        console.error('Error fetching dashboard data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -525,61 +622,87 @@ const AdminDashboard = () => {
 
           {/* Content Area */}
           <div className="mt-6">
+            {' '}
             {activeTab === 'rooms' && (
-              <RoomApprovals
-                rooms={filteredRooms}
-                onViewRoom={(room) => {
-                  console.log('Room data received:', room); // Debug log
-                  setPreviewData({
-                    type: 'room',
-                    data: room,
-                  });
-                }}
-                onApproveRoom={handleApproveRoom}
-                onRejectRoom={handleRejectRoom}
-                onImageError={handleImageError}
-              />
-            )}
+              <>
+                <RoomApprovals
+                  rooms={filteredRooms}
+                  onViewRoom={(room) => {
+                    console.log('Room data received:', room); // Debug log
+                    setPreviewData({
+                      type: 'room',
+                      data: room,
+                    });
+                  }}
+                  onApproveRoom={handleApproveRoom}
+                  onRejectRoom={handleRejectRoom}
+                  onImageError={handleImageError}
+                />
+                {renderPagination(
+                  roomsPagination.currentPage,
+                  roomsPagination.totalPages,
+                  handleRoomsPageChange
+                )}
+              </>
+            )}{' '}
             {activeTab === 'verifications' && (
-              <VerificationRequests
-                requests={filteredVerifications}
-                statusConfig={verificationStatusConfig}
-                onViewDocument={(url, userName) => {
-                  console.log('Viewing verification document with URL:', url);
-                  setPreviewData({ type: 'document', url, userName });
-                }}
-                onApproveRequest={(_, userId) =>
-                  setConfirmAction({
-                    type: 'approveVerification',
-                    id: userId,
-                  })
-                }
-                onRejectRequest={(_, userId) =>
-                  setConfirmAction({
-                    type: 'rejectVerification',
-                    id: userId,
-                  })
-                }
-                onImageError={handleImageError}
-              />
-            )}
+              <>
+                <VerificationRequests
+                  requests={filteredVerifications}
+                  statusConfig={verificationStatusConfig}
+                  onViewDocument={(url, userName) => {
+                    console.log('Viewing verification document with URL:', url);
+                    setPreviewData({ type: 'document', url, userName });
+                  }}
+                  onApproveRequest={(_, userId) =>
+                    setConfirmAction({
+                      type: 'approveVerification',
+                      id: userId,
+                    })
+                  }
+                  onRejectRequest={(_, userId) =>
+                    setConfirmAction({
+                      type: 'rejectVerification',
+                      id: userId,
+                    })
+                  }
+                  onImageError={handleImageError}
+                />
+                {renderPagination(
+                  verificationsPagination.currentPage,
+                  verificationsPagination.totalPages,
+                  handleVerificationsPageChange
+                )}
+              </>
+            )}{' '}
             {activeTab === 'users' && (
-              <UserManagement
-                users={filteredUsers}
-                statusConfig={userStatusConfig}
-                verificationConfig={verificationStatusConfig}
-                onViewDocument={(url, userName) => {
-                  console.log('Viewing document with URL:', url);
-                  setPreviewData({ type: 'document', url, userName });
-                }}
-                onBanUser={(userId, userName) =>
-                  setConfirmAction({ type: 'banUser', id: userId, userName })
-                }
-                onDeleteUser={(userId, userName) =>
-                  setConfirmAction({ type: 'deleteUser', id: userId, userName })
-                }
-                onImageError={handleImageError}
-              />
+              <>
+                <UserManagement
+                  users={filteredUsers}
+                  statusConfig={userStatusConfig}
+                  verificationConfig={verificationStatusConfig}
+                  onViewDocument={(url, userName) => {
+                    console.log('Viewing document with URL:', url);
+                    setPreviewData({ type: 'document', url, userName });
+                  }}
+                  onBanUser={(userId, userName) =>
+                    setConfirmAction({ type: 'banUser', id: userId, userName })
+                  }
+                  onDeleteUser={(userId, userName) =>
+                    setConfirmAction({
+                      type: 'deleteUser',
+                      id: userId,
+                      userName,
+                    })
+                  }
+                  onImageError={handleImageError}
+                />
+                {renderPagination(
+                  usersPagination.currentPage,
+                  usersPagination.totalPages,
+                  handleUsersPageChange
+                )}
+              </>
             )}
             {activeTab === 'banned' && <BannedUsers />}
           </div>

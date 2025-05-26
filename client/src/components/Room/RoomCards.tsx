@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { FiMapPin, FiUsers } from 'react-icons/fi';
 import { BsStars } from 'react-icons/bs';
@@ -42,7 +42,7 @@ interface Room {
   host?: Host;
 }
 
-const RoomCard: FC<{ room: Room }> = ({ room }) => {
+const RoomCard: FC<{ room: Room }> = memo(({ room }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>(placeholder);
@@ -105,7 +105,8 @@ const RoomCard: FC<{ room: Room }> = ({ room }) => {
     <Link
       to={`/rooms/${room._id}`}
       className="block bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
-      {/* Image */}
+      {' '}
+      {/* Image with optimized loading */}
       <div className="relative h-48 overflow-hidden bg-gray-200 dark:bg-gray-700">
         <img
           src={imageError ? placeholder : imageUrl}
@@ -123,11 +124,12 @@ const RoomCard: FC<{ room: Room }> = ({ room }) => {
             handleImageError(e);
           }}
           loading="lazy"
+          decoding="async"
         />
 
         {!imageLoaded && !imageError && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="animate-pulse bg-gray-300 dark:bg-gray-600 w-full h-full" />
+            <div className="animate-pulse bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 w-full h-full" />
           </div>
         )}
 
@@ -136,7 +138,6 @@ const RoomCard: FC<{ room: Room }> = ({ room }) => {
           {displayRoomType}
         </div>
       </div>
-
       {/* Content */}
       <div className="p-4 flex-grow flex flex-col">
         {/* Location */}
@@ -212,16 +213,26 @@ const RoomCard: FC<{ room: Room }> = ({ room }) => {
       </div>
     </Link>
   );
-};
+});
 
-const RoomCards: FC<{ rooms: Room[] }> = ({ rooms }) => {
+// Add display name for debugging
+RoomCard.displayName = 'RoomCard';
+
+const RoomCards: FC<{ rooms: Room[] }> = memo(({ rooms }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-all duration-300">
       {rooms.map((room) => (
-        <RoomCard key={room._id} room={room} />
+        <div
+          key={room._id}
+          className="transform transition-all duration-300 hover:scale-[1.02]">
+          <RoomCard room={room} />
+        </div>
       ))}
     </div>
   );
-};
+});
+
+// Add display name for debugging
+RoomCards.displayName = 'RoomCards';
 
 export default RoomCards;
