@@ -175,8 +175,7 @@ const Homepage = () => {
             );
           }
 
-          // Apply additional client-side search filtering if needed
-          if (debouncedSearch.trim() && !params.search) {
+          if (debouncedSearch.trim()) {
             const searchLower = debouncedSearch.toLowerCase();
             newRooms = newRooms.filter(
               (room: Room) =>
