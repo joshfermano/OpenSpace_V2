@@ -104,7 +104,7 @@ const RoomCard: FC<{ room: Room }> = memo(({ room }) => {
   return (
     <Link
       to={`/rooms/${room._id}`}
-      className="block bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:shadow-blue-500/20 dark:hover:shadow-purple-500/20 hover:bg-white/90 dark:hover:bg-gray-800/90 hover:border-blue-200/50 dark:hover:border-purple-400/30 transition-all duration-500 group hover:-translate-y-1">
+      className="block bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:shadow-blue-500/20 dark:hover:shadow-blue-500/20 hover:bg-white/90 dark:hover:bg-gray-800/90 hover:border-blue-200/50 dark:hover:border-blue-400/30 transition-all duration-500 group hover:-translate-y-1">
       {' '}
       {/* Image with optimized loading */}
       <div className="relative h-48 overflow-hidden bg-gray-200 dark:bg-gray-700">

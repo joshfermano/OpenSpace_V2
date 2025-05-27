@@ -353,9 +353,9 @@ const Homepage = () => {
     <section className="font-poppins min-h-screen bg-gradient-to-br from-light via-blue-50/30 to-slate-100/50 dark:bg-gradient-to-br dark:from-darkBlue dark:via-slate-900/90 dark:to-gray-900/80 text-darkBlue dark:text-light transition-all duration-300 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-cyan-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400/15 to-blue-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 w-64 h-64 bg-gradient-to-r from-violet-400/10 to-pink-400/10 rounded-full blur-2xl animate-pulse delay-500"></div>
+        <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 w-64 h-64 bg-gradient-to-r from-blue-400/10 to-teal-400/10 rounded-full blur-2xl animate-pulse delay-500"></div>
       </div>
 
       <div className="relative z-10 p-4">
@@ -391,7 +391,7 @@ const Homepage = () => {
 
           {/* Filter options */}
           {filter && (
-            <div className="mt-4 p-5 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl shadow-blue-500/10 dark:shadow-purple-500/10 transition-all duration-300">
+            <div className="mt-4 p-5 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl shadow-blue-500/10 dark:shadow-blue-500/10 transition-all duration-300">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium">Filter by category</h2>
                 <button
