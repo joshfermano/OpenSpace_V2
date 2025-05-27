@@ -7,12 +7,12 @@ import { IUser } from '../models/User';
 import { uploadImage } from '../services/imageService';
 import { deleteImage } from '../services/imageService';
 
-// Define a custom Request type that includes the user property
-type AuthRequest = Request;
+type AuthRequest = Request & { user?: any };
 
-// Helper function to safely access req.user
 function getUserFromRequest(req: AuthRequest, res: Response): IUser | null {
+  console.log('[getUserFromRequest] Checking user in request...');
   if (!req.user) {
+    console.log('[getUserFromRequest] No req.user found');
     res.status(401).json({
       success: false,
       message: 'Not authenticated',
@@ -20,16 +20,24 @@ function getUserFromRequest(req: AuthRequest, res: Response): IUser | null {
     return null;
   }
 
-  // Handle both possible structures
-  const user = req.user;
-  if (!user._id && !user.id) {
+  console.log('[getUserFromRequest] User data:', {
+    _id: req.user._id,
+    id: req.user.id,
+    email: req.user.email,
+    keys: Object.keys(req.user),
+  });
+
+  // Ensure we have a valid user ID
+  if (!req.user._id && !req.user.id) {
+    console.log('[getUserFromRequest] No valid user ID found');
     res.status(401).json({
       success: false,
-      message: 'Invalid user data in request',
+      message: 'Invalid user session',
     });
     return null;
   }
 
+  console.log('[getUserFromRequest] User found successfully');
   return req.user;
 }
 
@@ -233,18 +241,25 @@ export const changePassword = async (
   }
 };
 
-// Save a room to favorites
+// Save a room to favorites - FIXED VERSION
 export const saveRoom = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    console.log('[saveRoom] Starting to save room...');
     const currentUser = getUserFromRequest(req, res);
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log('[saveRoom] No current user found');
+      return;
+    }
+
     const userId = currentUser._id;
     const { roomId } = req.body;
+    console.log('[saveRoom] User ID:', userId, 'Room ID:', roomId);
 
     if (!roomId) {
+      console.log('[saveRoom] No room ID provided');
       res.status(400).json({
         success: false,
         message: 'Room ID is required',
@@ -252,9 +267,30 @@ export const saveRoom = async (
       return;
     }
 
+    // Validate room ID format
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      console.log('[saveRoom] Invalid room ID format');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid room ID format',
+      });
+      return;
+    }
+
+    // Validate user ID format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log('[saveRoom] Invalid user ID format');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format',
+      });
+      return;
+    }
+
     // Check if room exists
     const room = await Room.findById(roomId);
     if (!room) {
+      console.log('[saveRoom] Room not found');
       res.status(404).json({
         success: false,
         message: 'Room not found',
@@ -265,6 +301,7 @@ export const saveRoom = async (
     // Add room to saved rooms if not already saved
     const user = await User.findById(userId);
     if (!user) {
+      console.log('[saveRoom] User not found in database');
       res.status(404).json({
         success: false,
         message: 'User not found',
@@ -272,9 +309,22 @@ export const saveRoom = async (
       return;
     }
 
-    if (!user.savedRooms.includes(roomId)) {
-      user.savedRooms.push(roomId);
+    console.log('[saveRoom] Current saved rooms:', user.savedRooms);
+
+    // Convert roomId to ObjectId for comparison
+    const roomObjectId = new mongoose.Types.ObjectId(roomId);
+
+    // Check if room is already saved using proper ObjectId comparison
+    const isAlreadySaved = user.savedRooms.some((savedRoomId) =>
+      savedRoomId.equals(roomObjectId)
+    );
+
+    if (!isAlreadySaved) {
+      user.savedRooms.push(roomObjectId);
       await user.save();
+      console.log('[saveRoom] Room added to favorites');
+    } else {
+      console.log('[saveRoom] Room already in favorites');
     }
 
     res.status(200).json({
@@ -282,6 +332,7 @@ export const saveRoom = async (
       message: 'Room saved to favorites',
     });
   } catch (error: any) {
+    console.error('[saveRoom] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Error saving room to favorites',
@@ -290,21 +341,45 @@ export const saveRoom = async (
   }
 };
 
-// Remove a room from favorites
+// Remove a room from favorites - FIXED VERSION
 export const unsaveRoom = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    console.log('[unsaveRoom] Starting to remove room from favorites...');
     const currentUser = getUserFromRequest(req, res);
     if (!currentUser) return;
+
+    // Extract user ID from the user object
     const userId = currentUser._id;
     const { roomId } = req.params;
+    console.log('[unsaveRoom] User ID:', userId, 'Room ID:', roomId);
 
     if (!roomId) {
       res.status(400).json({
         success: false,
         message: 'Room ID is required',
+      });
+      return;
+    }
+
+    // Validate room ID format
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      console.log('[unsaveRoom] Invalid room ID format');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid room ID format',
+      });
+      return;
+    }
+
+    // Validate user ID format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log('[unsaveRoom] Invalid user ID format');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format',
       });
       return;
     }
@@ -319,14 +394,37 @@ export const unsaveRoom = async (
       return;
     }
 
-    user.savedRooms = user.savedRooms.filter((id) => id.toString() !== roomId);
-    await user.save();
+    console.log(
+      '[unsaveRoom] Current saved rooms before removal:',
+      user.savedRooms
+    );
+
+    // Convert roomId to ObjectId for proper comparison
+    const roomObjectId = new mongoose.Types.ObjectId(roomId);
+
+    // Filter out the room using proper ObjectId comparison
+    const initialLength = user.savedRooms.length;
+    user.savedRooms = user.savedRooms.filter(
+      (savedRoomId) => !savedRoomId.equals(roomObjectId)
+    );
+
+    const wasRemoved = user.savedRooms.length < initialLength;
+
+    if (wasRemoved) {
+      await user.save();
+      console.log('[unsaveRoom] Room removed from favorites');
+    } else {
+      console.log('[unsaveRoom] Room was not in favorites');
+    }
+
+    console.log('[unsaveRoom] Saved rooms after removal:', user.savedRooms);
 
     res.status(200).json({
       success: true,
       message: 'Room removed from favorites',
     });
   } catch (error: any) {
+    console.error('[unsaveRoom] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Error removing room from favorites',
@@ -335,18 +433,36 @@ export const unsaveRoom = async (
   }
 };
 
-// Get saved rooms
+// Get saved rooms - FIXED VERSION
 export const getSavedRooms = async (
   req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    console.log('[getSavedRooms] Starting to fetch saved rooms...');
     const currentUser = getUserFromRequest(req, res);
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log('[getSavedRooms] No current user found');
+      return;
+    }
+
+    // Extract user ID from the user object
     const userId = currentUser._id;
+    console.log('[getSavedRooms] User ID:', userId);
+
+    // Validate user ID format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log('[getSavedRooms] Invalid user ID format');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format',
+      });
+      return;
+    }
 
     const user = await User.findById(userId);
     if (!user) {
+      console.log('[getSavedRooms] User not found in database');
       res.status(404).json({
         success: false,
         message: 'User not found',
@@ -354,12 +470,16 @@ export const getSavedRooms = async (
       return;
     }
 
-    // Get saved rooms with details
+    console.log('[getSavedRooms] User found, saved rooms:', user.savedRooms);
+
+    // Get saved rooms with details and populate host information
     const savedRooms = await Room.find({
       _id: { $in: user.savedRooms },
       isPublished: true,
       status: 'approved',
-    });
+    }).populate('host', 'firstName lastName profileImage hostInfo');
+
+    console.log('[getSavedRooms] Found saved rooms:', savedRooms.length);
 
     res.status(200).json({
       success: true,
@@ -367,6 +487,7 @@ export const getSavedRooms = async (
       data: savedRooms,
     });
   } catch (error: any) {
+    console.error('[getSavedRooms] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching saved rooms',
@@ -381,12 +502,44 @@ export const getDashboardData = async (
   res: Response
 ): Promise<void> => {
   try {
+    console.log('[getDashboardData] Starting to fetch dashboard data...');
     const currentUser = getUserFromRequest(req, res);
-    if (!currentUser) return;
-    const userId = currentUser._id;
+    if (!currentUser) {
+      console.log('[getDashboardData] No current user found');
+      return;
+    }
+
+    // Extract user ID from the user object (try _id first, then id)
+    const userId = currentUser._id || currentUser.id;
+    console.log('[getDashboardData] User ID:', userId);
+    console.log(
+      '[getDashboardData] Current user object keys:',
+      Object.keys(currentUser)
+    );
+
+    // Validate user ID exists
+    if (!userId) {
+      console.log('[getDashboardData] No user ID found in user object');
+      res.status(400).json({
+        success: false,
+        message: 'Invalid user ID',
+      });
+      return;
+    }
+
+    // Validate user ID format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      console.log('[getDashboardData] Invalid user ID format:', userId);
+      res.status(400).json({
+        success: false,
+        message: 'Invalid user ID',
+      });
+      return;
+    }
 
     const user = await User.findById(userId);
     if (!user) {
+      console.log('[getDashboardData] User not found in database');
       res.status(404).json({
         success: false,
         message: 'User not found',
@@ -394,18 +547,21 @@ export const getDashboardData = async (
       return;
     }
 
-    // Different dashboard data based on user role
+    console.log('[getDashboardData] User found, role:', user.role);
+
     let dashboardData: any = {
       user: {
         _id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        phoneNumber: user.phoneNumber,
         profileImage: user.profileImage,
         role: user.role,
         verificationLevel: user.verificationLevel,
         isEmailVerified: user.isEmailVerified,
         isPhoneVerified: user.isPhoneVerified,
+        createdAt: user.createdAt,
       },
     };
 
@@ -478,11 +634,13 @@ export const getDashboardData = async (
       };
     }
 
+    console.log('[getDashboardData] Dashboard data prepared successfully');
     res.status(200).json({
       success: true,
       data: dashboardData,
     });
   } catch (error: any) {
+    console.error('[getDashboardData] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching dashboard data',
@@ -496,7 +654,6 @@ export const getNotifications = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Placeholder for notifications implementation
     res.status(200).json({
       success: true,
       data: [],

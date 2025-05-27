@@ -48,7 +48,6 @@ const ViewRoom = () => {
   const handleCloseImageModal = () => {
     setIsImageModalOpen(false);
   };
-
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return placeholder;
     if (imagePath.startsWith('http')) return imagePath;
@@ -217,13 +216,26 @@ const ViewRoom = () => {
 
           if (isAuthenticated) {
             try {
-              // Check favorite status
+              // Check favorite status with better error handling
+              console.log(
+                `[ViewRoom] Checking favorite status for room ${roomId}`
+              );
               const favoritesResponse = await roomApi.getFavoriteRooms();
-              if (favoritesResponse.success) {
+              console.log(`[ViewRoom] Favorites response:`, favoritesResponse);
+
+              if (favoritesResponse.success && favoritesResponse.data) {
                 const isSaved = favoritesResponse.data.some(
                   (savedRoom: any) => savedRoom._id === roomId
                 );
+                console.log(`[ViewRoom] Room ${roomId} is saved: ${isSaved}`);
                 setIsFavorite(isSaved);
+              } else {
+                console.log(
+                  `[ViewRoom] Failed to fetch favorites or no data:`,
+                  favoritesResponse.message
+                );
+                // Set to false if we can't fetch favorites
+                setIsFavorite(false);
               }
 
               // Fetch user's bookings
@@ -256,6 +268,9 @@ const ViewRoom = () => {
               }
             } catch (error) {
               console.error('Error fetching user data:', error);
+              // Don't block the UI if user data fails
+              setIsFavorite(false);
+              setUserBookings([]);
             }
           }
         } else {
@@ -281,27 +296,43 @@ const ViewRoom = () => {
 
     if (!roomId) return;
 
+    console.log(
+      `[ViewRoom] Toggling favorite for room ${roomId}. Current state: ${isFavorite}`
+    );
     setToggleFavoriteLoading(true);
     try {
       if (isFavorite) {
         // Remove from favorites
+        console.log(`[ViewRoom] Removing room ${roomId} from favorites`);
         const response = await roomApi.unfavoriteRoom(roomId);
         if (response.success) {
           setIsFavorite(false);
+          toast.success('Removed from favorites');
+          console.log(
+            `[ViewRoom] Successfully removed room ${roomId} from favorites`
+          );
         } else {
           console.error('Failed to remove from favorites:', response.message);
+          toast.error(response.message || 'Failed to remove from favorites');
         }
       } else {
         // Add to favorites
+        console.log(`[ViewRoom] Adding room ${roomId} to favorites`);
         const response = await roomApi.favoriteRoom(roomId);
         if (response.success) {
           setIsFavorite(true);
+          toast.success('Added to favorites');
+          console.log(
+            `[ViewRoom] Successfully added room ${roomId} to favorites`
+          );
         } else {
           console.error('Failed to add to favorites:', response.message);
+          toast.error(response.message || 'Failed to add to favorites');
         }
       }
     } catch (error) {
       console.error('Error toggling favorite status:', error);
+      toast.error('An error occurred while updating favorites');
     } finally {
       setToggleFavoriteLoading(false);
     }

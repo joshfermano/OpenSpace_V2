@@ -34,12 +34,26 @@ const UserFavorites = ({ showAll = false }: UserFavoritesProps) => {
   const fetchFavorites = async () => {
     setLoading(true);
     try {
+      console.log('[UserFavorites] Fetching favorites...');
       const response = await roomApi.getFavoriteRooms();
-      if (response.success) {
-        setFavoriteRooms(response.data || []);
+      console.log('[UserFavorites] Response:', response);
+
+      if (response.success && response.data) {
+        setFavoriteRooms(response.data);
+        console.log(
+          '[UserFavorites] Set favorite rooms:',
+          response.data.length
+        );
+      } else {
+        console.warn(
+          '[UserFavorites] Failed to fetch favorites:',
+          response.message
+        );
+        setFavoriteRooms([]); // Set empty array if fetch fails
       }
     } catch (error) {
       console.error('Error fetching favorites:', error);
+      setFavoriteRooms([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -50,14 +64,22 @@ const UserFavorites = ({ showAll = false }: UserFavoritesProps) => {
     setRemovingIds((prev) => [...prev, roomId]);
 
     try {
+      console.log('[UserFavorites] Removing favorite:', roomId);
       const response = await roomApi.unfavoriteRoom(roomId);
       if (response.success) {
         setFavoriteRooms((prev) => prev.filter((room) => room._id !== roomId));
+        console.log('[UserFavorites] Successfully removed favorite');
+        // Show success message if desired
+        // toast.success('Removed from favorites');
       } else {
         console.error('Failed to remove favorite:', response.message);
+        // Show error message if desired
+        // toast.error(response.message || 'Failed to remove from favorites');
       }
     } catch (error) {
       console.error('Error removing favorite:', error);
+      // Show error message if desired
+      // toast.error('An error occurred while removing from favorites');
     } finally {
       setRemovingIds((prev) => prev.filter((id) => id !== roomId));
     }
@@ -112,6 +134,19 @@ const UserFavorites = ({ showAll = false }: UserFavoritesProps) => {
                       src={room.images[0]}
                       alt={room.title}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Handle broken images
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div class="w-full h-full flex items-center justify-center text-gray-400">
+                              No image available
+                            </div>
+                          `;
+                        }
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -120,9 +155,10 @@ const UserFavorites = ({ showAll = false }: UserFavoritesProps) => {
                   )}
                 </div>
                 <button
-                  className="absolute top-3 right-3 p-2 bg-white/80 dark:bg-gray-800/80 rounded-full text-red-500 hover:bg-white dark:hover:bg-gray-800"
+                  className="absolute top-3 right-3 p-2 bg-white/80 dark:bg-gray-800/80 rounded-full text-red-500 hover:bg-white dark:hover:bg-gray-800 transition-colors"
                   onClick={() => handleRemoveFavorite(room._id)}
-                  disabled={removingIds.includes(room._id)}>
+                  disabled={removingIds.includes(room._id)}
+                  title="Remove from favorites">
                   {removingIds.includes(room._id) ? (
                     <span className="block w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></span>
                   ) : (
@@ -136,8 +172,8 @@ const UserFavorites = ({ showAll = false }: UserFavoritesProps) => {
                   {room.title}
                 </h3>
                 <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-3">
-                  <FiMap className="mr-1" /> {room.location.city},{' '}
-                  {room.location.country}
+                  <FiMap className="mr-1" /> {room.location?.city || 'Unknown'},{' '}
+                  {room.location?.country || 'Unknown'}
                 </div>
                 <div className="flex justify-between items-center">
                   <div>
@@ -145,7 +181,7 @@ const UserFavorites = ({ showAll = false }: UserFavoritesProps) => {
                       Price
                     </p>
                     <p className="font-medium text-gray-900 dark:text-white">
-                      ₱{room.price.basePrice.toLocaleString()}
+                      ₱{room.price?.basePrice?.toLocaleString() || 'N/A'}
                       {room.type === 'stay' ? ' / night' : ' / hour'}
                     </p>
                   </div>

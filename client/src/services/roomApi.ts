@@ -344,14 +344,39 @@ export const roomApi = {
       };
     }
   },
-
   favoriteRoom: async (roomId: string) => {
     try {
+      console.log(`[roomApi] Adding room ${roomId} to favorites`);
       const response = await fetchWithAuth('/api/users/save-room', {
         method: 'POST',
         body: JSON.stringify({ roomId }),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[roomApi] favoriteRoom error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+
+        // Try to parse error as JSON, fallback to text
+        let errorMessage = `Failed to add to favorites: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Use default message if parsing fails
+        }
+
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      }
+
       const data = await response.json();
+      console.log(`[roomApi] Save room response:`, data);
       return data;
     } catch (error) {
       console.error(`Error adding room ${roomId} to favorites:`, error);
@@ -361,16 +386,41 @@ export const roomApi = {
       };
     }
   },
-
   unfavoriteRoom: async (roomId: string) => {
     try {
+      console.log(`[roomApi] Removing room ${roomId} from favorites`);
       const response = await fetchWithAuth(
         `/api/users/unsave-rooms/${roomId}`,
         {
           method: 'DELETE',
         }
       );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[roomApi] unfavoriteRoom error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+
+        // Try to parse error as JSON, fallback to text
+        let errorMessage = `Failed to remove from favorites: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Use default message if parsing fails
+        }
+
+        return {
+          success: false,
+          message: errorMessage,
+        };
+      }
+
       const data = await response.json();
+      console.log(`[roomApi] Unsave room response:`, data);
       return data;
     } catch (error) {
       console.error(`Error removing room ${roomId} from favorites:`, error);
@@ -380,22 +430,58 @@ export const roomApi = {
       };
     }
   },
-
   getFavoriteRooms: async (params = {}) => {
     try {
+      console.log('[roomApi] Fetching favorite rooms...');
       const queryString = new URLSearchParams(
         params as Record<string, string>
       ).toString();
       const response = await fetchWithAuth(
         `/api/users/saved-rooms?${queryString}`
       );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[roomApi] getFavoriteRooms error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+
+        // Handle 401 specifically for authentication issues
+        if (response.status === 401) {
+          return {
+            success: false,
+            message: 'Authentication required to fetch favorites',
+            data: [],
+          };
+        }
+
+        // Try to parse error as JSON, fallback to text
+        let errorMessage = `Failed to fetch favorites: ${response.status} ${response.statusText}`;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Use default message if parsing fails
+        }
+
+        return {
+          success: false,
+          message: errorMessage,
+          data: [],
+        };
+      }
+
       const data = await response.json();
+      console.log('[roomApi] getFavoriteRooms success:', data);
       return data;
     } catch (error) {
       console.error('Error fetching favorite rooms:', error);
       return {
         success: false,
         message: 'Network error while fetching favorite rooms',
+        data: [],
       };
     }
   },

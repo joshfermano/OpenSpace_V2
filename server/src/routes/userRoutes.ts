@@ -45,33 +45,36 @@ const upload = multer({
 
 const router = express.Router();
 
-// Public routes (accessible without authentication)
-// Get user (for viewing host profiles publicly)
-router.get('/:userId', userController.getUserById);
-
-// Protected routes (require authentication)
-router.use(protect);
+// Protected routes (require authentication) - SPECIFIC paths MUST come BEFORE parameterized routes
+// Dashboard
+router.get('/dashboard', protect, userController.getDashboardData);
+router.get('/notifications', protect, userController.getNotifications);
+router.put(
+  '/notifications/:id/read',
+  protect,
+  userController.markNotificationAsRead
+);
 
 // Profile management
-router.get('/profile', userController.getUserProfile);
-router.put('/edit-profile', userController.updateProfile);
-router.put('/password', userController.changePassword);
+router.get('/profile', protect, userController.getUserProfile);
+router.put('/edit-profile', protect, userController.updateProfile);
+router.put('/password', protect, userController.changePassword);
 
 // Profile image upload
 router.post(
   '/profile/upload-image',
+  protect,
   upload.single('profileImage'),
   userController.uploadProfileImage
 );
 
-// Dashboard
-router.get('/dashboard', userController.getDashboardData);
-router.get('/notifications', userController.getNotifications);
-router.put('/notifications/:id/read', userController.markNotificationAsRead);
-
 // Favorites/wishlist management
-router.get('/saved-rooms', userController.getSavedRooms);
-router.post('/save-room', userController.saveRoom);
-router.delete('/unsave-rooms/:roomId', userController.unsaveRoom);
+router.get('/saved-rooms', protect, userController.getSavedRooms);
+router.post('/save-room', protect, userController.saveRoom);
+router.delete('/unsave-rooms/:roomId', protect, userController.unsaveRoom);
+
+// Public routes (accessible without authentication) - parameterized routes come LAST
+// Get user (for viewing host profiles publicly)
+router.get('/:userId', userController.getUserById);
 
 export default router;
