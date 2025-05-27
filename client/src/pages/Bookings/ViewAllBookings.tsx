@@ -13,6 +13,7 @@ import {
 import { GoSortAsc } from 'react-icons/go';
 import { bookingApi } from '../../services/bookingApi';
 import UserBookings from '../../components/User Dashboard/UserBookings';
+import Pagination from '../../components/UI/Pagination';
 
 interface Booking {
   id: string;
@@ -26,7 +27,14 @@ interface Booking {
   totalPrice: number;
   paymentStatus: string;
   status: string;
-  createdAt: string; // Ensure this is required, not optional
+  createdAt: string;
+}
+
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  count: number;
+  total?: number;
 }
 
 type StatusFilter =
@@ -41,58 +49,90 @@ type SortOption = 'newest' | 'oldest' | 'newest-booked' | 'oldest-booked';
 
 const ViewAllBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('newest-booked');
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    count: 0,
+  });
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setLoading(true);
-        const response = await bookingApi.getUserBookings();
-        if (response.success) {
-          // Map the API response to match our Booking interface
-          const formattedBookings = response.data.map((booking: any) => ({
-            id: booking._id,
-            roomId: booking.room?._id || 'Unavailable',
-            roomTitle: booking.room?.title || 'Room',
-            roomImage: booking.room?.images?.[0] || null,
-            startDate: booking.checkIn,
-            endDate: booking.checkOut,
-            checkInTime: booking.checkInTime || '14:00',
-            checkOutTime: booking.checkOutTime || '12:00',
-            totalPrice: booking.totalPrice,
-            paymentStatus: booking.paymentStatus,
-            status: booking.bookingStatus,
-            createdAt: booking.createdAt || new Date().toISOString(),
-          }));
-          setBookings(formattedBookings);
-        }
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-      } finally {
-        setLoading(false);
+  // Fetch bookings with pagination and filters
+  const fetchBookings = async (
+    page = 1,
+    status = activeFilter,
+    sort = sortBy
+  ) => {
+    try {
+      setBookingsLoading(true);
+      console.log(
+        `Fetching bookings for page ${page} with status: ${status}, sort: ${sort}`
+      );
+
+      const params: Record<string, string> = {
+        page: page.toString(),
+        limit: '12', // Show 12 bookings per page
+      };
+
+      // Add status filter if not 'all'
+      if (status !== 'all') {
+        params.status = status;
       }
-    };
 
-    fetchBookings();
-  }, []);
+      const response = await bookingApi.getUserBookings(params);
+      console.log('Bookings API response:', response);
 
-  useEffect(() => {
-    let filtered = [...bookings];
+      if (response.success) {
+        // Map the API response to match our Booking interface
+        let formattedBookings = response.data.map((booking: any) => ({
+          id: booking._id,
+          roomId: booking.room?._id || 'Unavailable',
+          roomTitle: booking.room?.title || 'Room',
+          roomImage: booking.room?.images?.[0] || null,
+          startDate: booking.checkIn,
+          endDate: booking.checkOut,
+          checkInTime: booking.checkInTime || '14:00',
+          checkOutTime: booking.checkOutTime || '12:00',
+          totalPrice: booking.totalPrice,
+          paymentStatus: booking.paymentStatus,
+          status: booking.bookingStatus,
+          createdAt: booking.createdAt || new Date().toISOString(),
+        }));
 
-    if (activeFilter !== 'all') {
-      filtered = filtered.filter((booking) => booking.status === activeFilter);
+        // Apply client-side sorting since server doesn't handle all sort options
+        formattedBookings = sortBookings(formattedBookings, sort);
+
+        setBookings(formattedBookings);
+        setPagination({
+          currentPage: response.currentPage || page,
+          totalPages: response.totalPages || 1,
+          count: response.count || 0,
+          total: response.total,
+        });
+      } else {
+        console.error('Failed to fetch bookings:', response.message);
+        setBookings([]);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      setBookings([]);
+    } finally {
+      setBookingsLoading(false);
     }
+  };
 
-    filtered = sortBookings(filtered, sortBy);
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchBookings(newPage, activeFilter, sortBy);
+    }
+  };
 
-    setFilteredBookings(filtered);
-  }, [activeFilter, sortBy, bookings]);
-
+  // Sort bookings function
   const sortBookings = (
     bookingsToSort: Booking[],
     sortOption: SortOption
@@ -125,19 +165,32 @@ const ViewAllBookings = () => {
     });
   };
 
+  // Initial fetch
+  useEffect(() => {
+    fetchBookings(1);
+    setLoading(false);
+  }, []);
+
+  // Handle filter change
   const handleFilterChange = (filter: StatusFilter) => {
     setActiveFilter(filter);
     setIsFilterOpen(false);
+    fetchBookings(1, filter, sortBy); // Reset to page 1 when filtering
   };
 
+  // Handle sort change
   const handleSortChange = (option: SortOption) => {
     setSortBy(option);
     setIsSortOpen(false);
+    fetchBookings(pagination.currentPage, activeFilter, option);
   };
 
-  const getStatusCount = (status: StatusFilter): number => {
-    if (status === 'all') return bookings.length;
-    return bookings.filter((booking) => booking.status === status).length;
+  // Get status count (for display only, actual counts come from server)
+  const getStatusCount = (status: StatusFilter): string => {
+    if (status === 'all') {
+      return pagination.total ? pagination.total.toString() : '0';
+    }
+    return '—'; // We don't have individual status counts from server
   };
 
   const renderSortLabel = () => {
@@ -204,6 +257,12 @@ const ViewAllBookings = () => {
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-2">
               Your Bookings
             </h1>
+            {pagination.count > 0 && (
+              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                Showing {pagination.count} of{' '}
+                {pagination.total || pagination.count} bookings
+              </p>
+            )}
           </div>
 
           {/* Mobile Control Buttons */}
@@ -448,8 +507,37 @@ const ViewAllBookings = () => {
         </div>
 
         {/* Booking Results */}
-        {filteredBookings.length > 0 ? (
-          <UserBookings bookings={filteredBookings} showAll={true} />
+        {bookingsLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                <div className="p-5">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2 animate-pulse"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3 animate-pulse"></div>
+                  <div className="flex justify-between">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse"></div>
+                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : bookings.length > 0 ? (
+          <>
+            <UserBookings bookings={bookings} showAll={true} />
+
+            {/* Pagination */}
+            <div className="mt-8">
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          </>
         ) : (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-50 dark:bg-blue-900 flex items-center justify-center">

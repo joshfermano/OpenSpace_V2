@@ -25,10 +25,17 @@ export const roomApi = {
     }
   },
 
-  getRoomsByHost: async (hostId: string) => {
+  getRoomsByHost: async (hostId: string, params = {}) => {
     try {
       console.log(`Fetching rooms for host ${hostId}...`);
-      const response = await fetchPublic(`/api/rooms/host/${hostId}`);
+      const queryString = new URLSearchParams(
+        params as Record<string, string>
+      ).toString();
+      const url = `/api/rooms/host/${hostId}${
+        queryString ? `?${queryString}` : ''
+      }`;
+
+      const response = await fetchPublic(url);
       if (!response.ok) {
         const errorData = await response.json();
         console.error(

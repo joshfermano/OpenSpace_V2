@@ -50,7 +50,9 @@ const UserListings = ({ userData, showAll = false }: UserListingsProps) => {
     const fetchListings = async () => {
       if (userData.role === 'host') {
         try {
-          const response = await roomApi.getMyRooms();
+          // If showAll is true, fetch more rooms, otherwise just get the first few
+          const params = showAll ? { limit: '50' } : { limit: '5' };
+          const response = await roomApi.getMyRooms(params);
           if (response.success) {
             setListings(response.data || []);
           }
@@ -65,7 +67,7 @@ const UserListings = ({ userData, showAll = false }: UserListingsProps) => {
     };
 
     fetchListings();
-  }, [userData.role]);
+  }, [userData.role, showAll]);
 
   // Format image URL to ensure it includes the API base URL if it's a relative path
   const getImageUrl = (imagePath: string) => {

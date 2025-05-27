@@ -509,6 +509,7 @@ export const getRoomsByHost = async (
     res.status(200).json({
       success: true,
       count: rooms.length,
+      total: total,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       data: rooms,
@@ -535,7 +536,7 @@ export const getMyRooms = async (
       });
       return;
     }
-    const userId = req.user.id;
+    const userId = req.user._id || req.user.id;
 
     // Check if user is a host
     const user = await User.findById(userId);
@@ -570,6 +571,7 @@ export const getMyRooms = async (
     res.status(200).json({
       success: true,
       count: rooms.length,
+      total: total,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       data: rooms,

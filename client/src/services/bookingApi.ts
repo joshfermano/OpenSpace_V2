@@ -38,10 +38,22 @@ export const bookingApi = {
       const queryString = new URLSearchParams(
         params as Record<string, string>
       ).toString();
+      console.log('Fetching user bookings with params:', params);
       const response = await fetchWithAuth(
         `/api/bookings/my/bookings?${queryString}`
       );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error fetching user bookings:', errorData);
+        return {
+          success: false,
+          message: errorData.message || 'Failed to fetch bookings',
+        };
+      }
+
       const data = await response.json();
+      console.log('User bookings API response:', data);
       return data;
     } catch (error) {
       console.error('Error fetching user bookings:', error);
@@ -263,10 +275,22 @@ export const bookingApi = {
       const queryString = new URLSearchParams(
         params as Record<string, string>
       ).toString();
+      console.log('Fetching host bookings with params:', params);
       const response = await fetchWithAuth(
         `/api/bookings/host/bookings?${queryString}`
       );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error fetching host bookings:', errorData);
+        return {
+          success: false,
+          message: errorData.message || 'Failed to fetch host bookings',
+        };
+      }
+
       const data = await response.json();
+      console.log('Host bookings API response:', data);
       return data;
     } catch (error) {
       console.error('Error fetching host bookings:', error);

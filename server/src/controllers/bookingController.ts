@@ -959,6 +959,7 @@ export const getUserBookings = async (
     res.status(200).json({
       success: true,
       count: bookings.length,
+      total: total,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       data: bookings,
@@ -1020,6 +1021,7 @@ export const getHostBookings = async (
     res.status(200).json({
       success: true,
       count: bookings.length,
+      total: total,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
       data: bookings,

@@ -12,11 +12,11 @@ import { Booking } from '../../types/booking';
 import BookingsFilter from '../../components/Host/BookingsFilter';
 import BookingsList from '../../components/Host/BookingsList';
 import ReceiptModal from '../../components/Host/ReceiptModal';
+import Pagination from '../../components/UI/Pagination';
 import { toast } from 'react-toastify';
 
 const HostBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -27,30 +27,80 @@ const HostBookings = () => {
   } | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    count: 0,
+    total: 0,
+  });
 
+  // Initial fetch
   useEffect(() => {
-    fetchBookings();
-  }, [statusFilter]);
+    fetchBookings(1);
+  }, []);
 
-  const fetchBookings = async () => {
-    setLoading(true);
-    setError(null);
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchBookings(newPage, statusFilter, sortBy);
+    }
+  };
 
+  // Handle filter change
+  const handleStatusFilterChange = (newStatus: string) => {
+    setStatusFilter(newStatus);
+    fetchBookings(1, newStatus, sortBy); // Reset to page 1 when filtering
+  };
+
+  // Handle sort change
+  const handleSortChange = (newSort: SortOption) => {
+    setSortBy(newSort);
+    fetchBookings(pagination.currentPage, statusFilter, newSort);
+  };
+
+  const fetchBookings = async (
+    page = 1,
+    status = statusFilter,
+    sort = sortBy
+  ) => {
     try {
-      const params: Record<string, string> = {};
-      if (statusFilter !== 'all') {
-        params.status = statusFilter;
+      setLoading(page === 1);
+      setError(null);
+
+      console.log(
+        `Fetching host bookings for page ${page} with status: ${status}`
+      );
+
+      const params: Record<string, string> = {
+        page: page.toString(),
+        limit: '12', // Show 12 bookings per page
+      };
+
+      if (status !== 'all') {
+        params.status = status;
       }
 
       const response = await bookingApi.getHostBookings(params);
+      console.log('Host bookings API response:', response);
+
       if (response && response.success) {
-        // Ensure data exists and is an array before setting state
-        const bookingsData = Array.isArray(response.data) ? response.data : [];
+        let bookingsData = Array.isArray(response.data) ? response.data : [];
+
+        // Apply client-side sorting
+        bookingsData = sortBookings(bookingsData, sort);
+
         setBookings(bookingsData);
+        setPagination({
+          currentPage: response.currentPage || page,
+          totalPages: response.totalPages || 1,
+          count: response.count || 0,
+          total: response.total,
+        });
       } else {
         const errorMessage = response?.message || 'Failed to fetch bookings';
         setError(errorMessage);
         console.error('Failed to fetch bookings:', errorMessage);
+        setBookings([]);
       }
     } catch (error) {
       const errorMessage =
@@ -59,106 +109,11 @@ const HostBookings = () => {
           : 'Network error while loading bookings';
       setError(errorMessage);
       console.error('Error fetching bookings:', error);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
   };
-
-  const handleConfirmBooking = async (bookingId: string) => {
-    setProcessingAction({ id: bookingId, action: 'confirm' });
-    try {
-      const response = await bookingApi.confirmBooking(bookingId);
-      if (response && response.success) {
-        toast.success('Booking confirmed successfully');
-        fetchBookings();
-      } else {
-        const errorMessage = response?.message || 'Failed to confirm booking';
-        toast.error(errorMessage);
-        console.error('Failed to confirm booking:', errorMessage);
-      }
-    } catch (error) {
-      toast.error('Network error while confirming booking');
-      console.error('Error confirming booking:', error);
-    } finally {
-      setProcessingAction(null);
-    }
-  };
-
-  const handleRejectBooking = async (bookingId: string) => {
-    setProcessingAction({ id: bookingId, action: 'reject' });
-    try {
-      const response = await bookingApi.rejectBooking(
-        bookingId,
-        'Rejected by host'
-      );
-      if (response && response.success) {
-        toast.success('Booking rejected successfully');
-        fetchBookings();
-      } else {
-        const errorMessage = response?.message || 'Failed to reject booking';
-        toast.error(errorMessage);
-        console.error('Failed to reject booking:', errorMessage);
-      }
-    } catch (error) {
-      toast.error('Network error while rejecting booking');
-      console.error('Error rejecting booking:', error);
-    } finally {
-      setProcessingAction(null);
-    }
-  };
-
-  const handleCompleteBooking = async (bookingId: string) => {
-    setProcessingAction({ id: bookingId, action: 'complete' });
-    try {
-      const response = await bookingApi.completeBooking(bookingId);
-      if (response && response.success) {
-        toast.success('Booking marked as completed');
-        fetchBookings();
-      } else {
-        const errorMessage = response?.message || 'Failed to complete booking';
-        toast.error(errorMessage);
-        console.error('Failed to complete booking:', errorMessage);
-      }
-    } catch (error) {
-      toast.error('Network error while completing booking');
-      console.error('Error completing booking:', error);
-    } finally {
-      setProcessingAction(null);
-    }
-  };
-
-  const handleMarkPaymentReceived = async (bookingId: string) => {
-    setProcessingAction({ id: bookingId, action: 'mark-paid' });
-    try {
-      const response = await bookingApi.markPaymentReceived(bookingId);
-      if (response && response.success) {
-        toast.success('Payment marked as received');
-        fetchBookings();
-      } else {
-        const errorMessage =
-          response?.message || 'Failed to mark payment as received';
-        toast.error(errorMessage);
-        console.error('Failed to mark payment as received:', errorMessage);
-      }
-    } catch (error) {
-      toast.error('Network error while marking payment as received');
-      console.error('Error marking payment as received:', error);
-    } finally {
-      setProcessingAction(null);
-    }
-  };
-
-  const handleViewReceipt = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setShowReceiptModal(true);
-  };
-
-  const closeReceiptModal = () => {
-    setShowReceiptModal(false);
-    setSelectedBooking(null);
-  };
-
-  type SortOption = 'newest' | 'oldest' | 'newest-booked' | 'oldest-booked';
 
   const sortBookings = (
     bookingsToSort: Booking[],
@@ -203,30 +158,104 @@ const HostBookings = () => {
     });
   };
 
-  useEffect(() => {
-    if (!Array.isArray(bookings)) {
-      setFilteredBookings([]);
-      return;
+  const handleConfirmBooking = async (bookingId: string) => {
+    setProcessingAction({ id: bookingId, action: 'confirm' });
+    try {
+      const response = await bookingApi.confirmBooking(bookingId);
+      if (response && response.success) {
+        toast.success('Booking confirmed successfully');
+        fetchBookings(pagination.currentPage, statusFilter, sortBy);
+      } else {
+        const errorMessage = response?.message || 'Failed to confirm booking';
+        toast.error(errorMessage);
+        console.error('Failed to confirm booking:', errorMessage);
+      }
+    } catch (error) {
+      toast.error('Network error while confirming booking');
+      console.error('Error confirming booking:', error);
+    } finally {
+      setProcessingAction(null);
     }
+  };
 
-    let filtered = bookings.filter(
-      (booking) => booking && booking.room && typeof booking.room === 'object'
-    );
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(
-        (booking) => booking && booking.bookingStatus === statusFilter
+  const handleRejectBooking = async (bookingId: string) => {
+    setProcessingAction({ id: bookingId, action: 'reject' });
+    try {
+      const response = await bookingApi.rejectBooking(
+        bookingId,
+        'Rejected by host'
       );
+      if (response && response.success) {
+        toast.success('Booking rejected successfully');
+        fetchBookings(pagination.currentPage, statusFilter, sortBy);
+      } else {
+        const errorMessage = response?.message || 'Failed to reject booking';
+        toast.error(errorMessage);
+        console.error('Failed to reject booking:', errorMessage);
+      }
+    } catch (error) {
+      toast.error('Network error while rejecting booking');
+      console.error('Error rejecting booking:', error);
+    } finally {
+      setProcessingAction(null);
     }
+  };
 
-    // Then sort the filtered results
-    filtered = sortBookings(filtered, sortBy);
+  const handleCompleteBooking = async (bookingId: string) => {
+    setProcessingAction({ id: bookingId, action: 'complete' });
+    try {
+      const response = await bookingApi.completeBooking(bookingId);
+      if (response && response.success) {
+        toast.success('Booking marked as completed');
+        fetchBookings(pagination.currentPage, statusFilter, sortBy);
+      } else {
+        const errorMessage = response?.message || 'Failed to complete booking';
+        toast.error(errorMessage);
+        console.error('Failed to complete booking:', errorMessage);
+      }
+    } catch (error) {
+      toast.error('Network error while completing booking');
+      console.error('Error completing booking:', error);
+    } finally {
+      setProcessingAction(null);
+    }
+  };
 
-    setFilteredBookings(filtered);
-  }, [statusFilter, sortBy, bookings]);
+  const handleMarkPaymentReceived = async (bookingId: string) => {
+    setProcessingAction({ id: bookingId, action: 'mark-paid' });
+    try {
+      const response = await bookingApi.markPaymentReceived(bookingId);
+      if (response && response.success) {
+        toast.success('Payment marked as received');
+        fetchBookings(pagination.currentPage, statusFilter, sortBy);
+      } else {
+        const errorMessage =
+          response?.message || 'Failed to mark payment as received';
+        toast.error(errorMessage);
+        console.error('Failed to mark payment as received:', errorMessage);
+      }
+    } catch (error) {
+      toast.error('Network error while marking payment as received');
+      console.error('Error marking payment as received:', error);
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleViewReceipt = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowReceiptModal(true);
+  };
+
+  const closeReceiptModal = () => {
+    setShowReceiptModal(false);
+    setSelectedBooking(null);
+  };
+
+  type SortOption = 'newest' | 'oldest' | 'newest-booked' | 'oldest-booked';
 
   if (error) {
-    return <ErrorState error={error} onRetry={fetchBookings} />;
+    return <ErrorState error={error} onRetry={() => fetchBookings(1)} />;
   }
 
   return (
@@ -246,6 +275,12 @@ const HostBookings = () => {
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               Review, confirm, and manage all your property bookings
             </p>
+            {pagination.count > 0 && (
+              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                Showing {pagination.count} of{' '}
+                {pagination.total || pagination.count} bookings
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
@@ -270,7 +305,7 @@ const HostBookings = () => {
           <select
             className="bg-white dark:bg-gray-800 border dark:text-light border-gray-300 dark:border-gray-700 rounded-md px-3 py-1 text-sm"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}>
+            onChange={(e) => handleSortChange(e.target.value as SortOption)}>
             <option value="newest-booked">Booking Date: Newest First</option>
             <option value="oldest-booked">Booking Date: Oldest First</option>
             <option value="newest">Check-in Date: Newest First</option>
@@ -281,25 +316,36 @@ const HostBookings = () => {
         {/* Status filters */}
         <BookingsFilter
           statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
+          setStatusFilter={handleStatusFilterChange}
         />
 
         {/* Bookings list or empty state */}
         <div className="mt-6">
           {loading ? (
             <LoadingState />
-          ) : filteredBookings.length === 0 ? (
+          ) : bookings.length === 0 ? (
             <EmptyState statusFilter={statusFilter} />
           ) : (
-            <BookingsList
-              bookings={filteredBookings}
-              processingAction={processingAction}
-              onConfirmBooking={handleConfirmBooking}
-              onRejectBooking={handleRejectBooking}
-              onCompleteBooking={handleCompleteBooking}
-              onMarkPaymentReceived={handleMarkPaymentReceived}
-              onViewReceipt={handleViewReceipt}
-            />
+            <>
+              <BookingsList
+                bookings={bookings}
+                processingAction={processingAction}
+                onConfirmBooking={handleConfirmBooking}
+                onRejectBooking={handleRejectBooking}
+                onCompleteBooking={handleCompleteBooking}
+                onMarkPaymentReceived={handleMarkPaymentReceived}
+                onViewReceipt={handleViewReceipt}
+              />
+
+              {/* Pagination */}
+              <div className="mt-8">
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>

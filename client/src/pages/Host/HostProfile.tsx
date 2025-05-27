@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi';
 import { userApi, roomApi } from '../../services/api';
 import { API_URL } from '../../services/core';
+import Pagination from '../../components/UI/Pagination';
 
 interface HostInfo {
   bio?: string;
@@ -69,12 +70,25 @@ interface Room {
   isPublished: boolean;
 }
 
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  count: number;
+  total?: number;
+}
+
 const HostProfile = () => {
   const { hostId } = useParams<{ hostId: string }>();
   const [host, setHost] = useState<Host | null>(null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const [roomsLoading, setRoomsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    count: 0,
+  });
 
   // Format date to prevent invalid date issues
   const formatDate = (dateString?: string): string => {
@@ -113,6 +127,48 @@ const HostProfile = () => {
     return `${hours} hours`;
   };
 
+  // Fetch host rooms with pagination
+  const fetchRooms = async (page = 1) => {
+    if (!hostId) return;
+
+    try {
+      setRoomsLoading(true);
+      console.log(`Fetching host rooms for page ${page}...`);
+
+      const roomsResponse = await roomApi.getRoomsByHost(hostId, {
+        page: page.toString(),
+        limit: '12', // Show 12 rooms per page for nice grid layout
+      });
+
+      console.log('Host rooms API response:', roomsResponse);
+
+      if (!roomsResponse.success) {
+        throw new Error(roomsResponse.message || 'Failed to fetch host rooms');
+      }
+
+      setRooms(roomsResponse.data || []);
+      setPagination({
+        currentPage: roomsResponse.currentPage || page,
+        totalPages: roomsResponse.totalPages || 1,
+        count: roomsResponse.count || 0,
+        total: roomsResponse.total,
+      });
+    } catch (err) {
+      console.error('Error fetching host rooms:', err);
+      // Don't set the main error state for room fetching failures
+      setRooms([]);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= pagination.totalPages) {
+      fetchRooms(newPage);
+    }
+  };
+
   useEffect(() => {
     const fetchHostData = async () => {
       if (!hostId) {
@@ -131,15 +187,8 @@ const HostProfile = () => {
 
         setHost(hostResponse.data);
 
-        const roomsResponse = await roomApi.getRoomsByHost(hostId);
-
-        if (!roomsResponse.success) {
-          throw new Error(
-            roomsResponse.message || 'Failed to fetch host rooms'
-          );
-        }
-
-        setRooms(roomsResponse.data || []);
+        // Fetch first page of rooms
+        await fetchRooms(1);
       } catch (err) {
         console.error('Error fetching host profile:', err);
         setError(
@@ -349,67 +398,104 @@ const HostProfile = () => {
 
         {/* Host listings */}
         <div className="mt-8">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
-            {host.firstName}'s Listings
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                {host.firstName}'s Listings
+              </h2>
+              {pagination.count > 0 && (
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Showing {pagination.count} of{' '}
+                  {pagination.total || pagination.count} listings
+                </p>
+              )}
+            </div>
+          </div>
 
-          {Object.keys(roomsByCategory).length === 0 ? (
+          {roomsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div
+                  key={i}
+                  className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm">
+                  <div className="h-48 bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                  <div className="p-4">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : Object.keys(roomsByCategory).length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
               <p className="text-gray-600 dark:text-gray-400">
                 This host doesn't have any active listings at the moment.
               </p>
             </div>
           ) : (
-            Object.entries(roomsByCategory).map(([category, categoryRooms]) => (
-              <div key={category} className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 capitalize">
-                  {category}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {categoryRooms.map((room) => (
-                    <Link
-                      to={`/rooms/${room._id}`}
-                      key={room._id}
-                      className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                      <div className="h-48 overflow-hidden relative">
-                        {room.images && room.images.length > 0 ? (
-                          <img
-                            src={getImageUrl(room.images[0])}
-                            alt={room.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                'https://via.placeholder.com/400x300?text=No+Image';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
-                            <span className="text-gray-500 dark:text-gray-400">
-                              No image
-                            </span>
+            <>
+              {Object.entries(roomsByCategory).map(
+                ([category, categoryRooms]) => (
+                  <div key={category} className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 capitalize">
+                      {category} ({categoryRooms.length})
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {categoryRooms.map((room) => (
+                        <Link
+                          to={`/rooms/${room._id}`}
+                          key={room._id}
+                          className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                          <div className="h-48 overflow-hidden relative">
+                            {room.images && room.images.length > 0 ? (
+                              <img
+                                src={getImageUrl(room.images[0])}
+                                alt={room.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src =
+                                    'https://via.placeholder.com/400x300?text=No+Image';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  No image
+                                </span>
+                              </div>
+                            )}
+                            <div className="absolute bottom-2 right-2 bg-gray-800/70 text-white text-sm px-2 py-1 rounded">
+                              ₱{room.price.basePrice.toLocaleString()}
+                              {room.type === 'conference' ||
+                              room.type === 'workspace'
+                                ? '/hour'
+                                : '/night'}
+                            </div>
                           </div>
-                        )}
-                        <div className="absolute bottom-2 right-2 bg-gray-800/70 text-white text-sm px-2 py-1 rounded">
-                          ₱{room.price.basePrice.toLocaleString()}
-                          {room.type === 'conference' ||
-                          room.type === 'workspace'
-                            ? '/hour'
-                            : '/night'}
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-1 truncate">
-                          {room.title}
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                          {room.location.city}, {room.location.country}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                          <div className="p-4">
+                            <h4 className="font-medium text-gray-900 dark:text-white mb-1 truncate">
+                              {room.title}
+                            </h4>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                              {room.location.city}, {room.location.country}
+                            </p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Pagination */}
+              <div className="mt-8">
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={handlePageChange}
+                />
               </div>
-            ))
+            </>
           )}
         </div>
       </div>
