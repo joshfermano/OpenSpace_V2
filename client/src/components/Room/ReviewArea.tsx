@@ -10,9 +10,8 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { reviewApi } from '../../services/reviewApi';
-import { API_URL } from '../../services/core';
+import { getImageUrl } from '../../utils/imageUtils';
 
-// Define the Review type
 interface Review {
   _id: string;
   user: {
@@ -262,6 +261,42 @@ const ReviewModal = ({
   );
 };
 
+// Profile Avatar Component
+const ProfileAvatar = ({ review }: { review: Review }) => {
+  const [imageError, setImageError] = useState(false);
+
+  const displayName = review.isAnonymous
+    ? 'Anonymous'
+    : `${review.user.firstName} ${review.user.lastName}`;
+
+  const nameInitial = review.isAnonymous
+    ? 'A'
+    : review.user.firstName.charAt(0).toUpperCase();
+
+  if (review.isAnonymous) {
+    return (
+      <FaUserCircle className="h-10 w-10 text-gray-400 dark:text-gray-600" />
+    );
+  }
+
+  if (review.user.profileImage && !imageError) {
+    return (
+      <img
+        src={getImageUrl(review.user.profileImage)}
+        alt={displayName}
+        className="h-10 w-10 rounded-full object-cover"
+        onError={() => setImageError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium">
+      {nameInitial}
+    </div>
+  );
+};
+
 // Review Card Component
 const ReviewCard = ({
   review,
@@ -288,28 +323,11 @@ const ReviewCard = ({
     day: 'numeric',
   });
 
-  // Get first letter for avatar
-  const nameInitial = review.isAnonymous
-    ? 'A'
-    : review.user.firstName.charAt(0).toUpperCase();
-
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
       <div className="flex justify-between">
         <div className="flex items-center">
-          {review.isAnonymous ? (
-            <FaUserCircle className="h-10 w-10 text-gray-400 dark:text-gray-600" />
-          ) : review.user.profileImage ? (
-            <img
-              src={`${API_URL}/${review.user.profileImage}`}
-              alt={nameInitial}
-              className="h-10 w-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-medium">
-              {nameInitial}
-            </div>
-          )}
+          <ProfileAvatar review={review} />
           <div className="ml-3">
             <p className="font-medium text-darkBlue dark:text-light">
               {displayName}

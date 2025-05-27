@@ -100,33 +100,57 @@ export const getRooms = async (req: Request, res: Response): Promise<void> => {
       startDate,
       endDate,
       amenities,
+      search,
     } = req.query;
 
-    // Build filter object
-    const filter: Record<string, any> = {
+    // Build base filter object
+    const baseFilter: Record<string, any> = {
       isPublished: true,
       status: 'approved',
     };
 
-    // Add filters if provided
-    if (type) filter.type = type;
-    if (city) filter['location.city'] = new RegExp(city as string, 'i');
+    const filterConditions: Record<string, any>[] = [];
+
+    if (search) {
+      const searchPattern = new RegExp(search as string, 'i');
+      filterConditions.push({
+        $or: [
+          { title: searchPattern },
+          { description: searchPattern },
+          { 'location.city': searchPattern },
+          { 'location.state': searchPattern },
+          { 'location.country': searchPattern },
+          { type: searchPattern },
+          { amenities: searchPattern },
+        ],
+      });
+    }
+
+    const additionalFilters: Record<string, any> = {};
+
+    if (type) additionalFilters.type = type;
+    if (city)
+      additionalFilters['location.city'] = new RegExp(city as string, 'i');
 
     if (minPrice)
-      filter['price.basePrice'] = { $gte: parseInt(minPrice as string) };
+      additionalFilters['price.basePrice'] = {
+        $gte: parseInt(minPrice as string),
+      };
     if (maxPrice) {
-      filter['price.basePrice'] = {
-        ...filter['price.basePrice'],
+      additionalFilters['price.basePrice'] = {
+        ...additionalFilters['price.basePrice'],
         $lte: parseInt(maxPrice as string),
       };
     }
 
     if (maxGuests)
-      filter['capacity.maxGuests'] = { $gte: parseInt(maxGuests as string) };
+      additionalFilters['capacity.maxGuests'] = {
+        $gte: parseInt(maxGuests as string),
+      };
 
     if (amenities) {
       const amenitiesList = (amenities as string).split(',');
-      filter.amenities = { $all: amenitiesList };
+      additionalFilters.amenities = { $all: amenitiesList };
     }
 
     // Date filtering logic
@@ -143,7 +167,7 @@ export const getRooms = async (req: Request, res: Response): Promise<void> => {
         return;
       }
 
-      filter.$and = [
+      additionalFilters.$and = [
         { 'availability.startDate': { $lte: end } },
         { 'availability.endDate': { $gte: start } },
         {
@@ -159,6 +183,23 @@ export const getRooms = async (req: Request, res: Response): Promise<void> => {
       ];
     }
 
+    // Combine all filters
+    const finalFilter = { ...baseFilter };
+
+    // Add additional filters to the base filter
+    Object.assign(finalFilter, additionalFilters);
+
+    // If we have search conditions, combine them with other filters using $and
+    if (filterConditions.length > 0) {
+      if (finalFilter.$and) {
+        // If we already have $and from date filtering, combine them
+        finalFilter.$and = [...finalFilter.$and, ...filterConditions];
+      } else {
+        // If we only have search conditions, just add them
+        finalFilter.$and = filterConditions;
+      }
+    }
+
     // Pagination
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -171,13 +212,13 @@ export const getRooms = async (req: Request, res: Response): Promise<void> => {
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
     // Execute query
-    const rooms = await Room.find(filter)
+    const rooms = await Room.find(finalFilter)
       .populate('host', 'firstName lastName profileImage hostInfo')
       .skip(skip)
       .limit(limit)
       .sort(sort);
 
-    const total = await Room.countDocuments(filter);
+    const total = await Room.countDocuments(finalFilter);
 
     res.status(200).json({
       success: true,

@@ -114,13 +114,20 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", 'https://vercel.live'],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          'https://vercel.live',
+          'https://*.vercel.live',
+        ],
         connectSrc: [
           "'self'",
           'https://*.supabase.co',
           'https://openspace-api.onrender.com',
           'https://openspace-reserve.vercel.app',
           'https://openspace-reserve-git-main-josh-khovick-fermanos-projects.vercel.app',
+          'https://vercel.live',
+          'https://*.vercel.live',
         ],
         imgSrc: [
           "'self'",
@@ -132,6 +139,7 @@ app.use(
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         formAction: ["'self'"],
+        frameSrc: ["'self'", 'https://vercel.live', 'https://*.vercel.live'],
         frameAncestors: ["'none'"],
       },
     },
@@ -144,7 +152,15 @@ app.use(
 
 app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+
+  const referer = _req.headers.referer || '';
+  const userAgent = _req.headers['user-agent'] || '';
+
+  if (referer.includes('vercel.live') || userAgent.includes('Vercel')) {
+  } else {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  }
+
   res.setHeader('X-XSS-Protection', '1; mode=block');
 
   const origin = _req.headers.origin;

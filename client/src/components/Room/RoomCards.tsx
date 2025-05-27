@@ -104,7 +104,7 @@ const RoomCard: FC<{ room: Room }> = memo(({ room }) => {
   return (
     <Link
       to={`/rooms/${room._id}`}
-      className="block bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow group">
+      className="block bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:shadow-blue-500/20 dark:hover:shadow-purple-500/20 hover:bg-white/90 dark:hover:bg-gray-800/90 hover:border-blue-200/50 dark:hover:border-purple-400/30 transition-all duration-500 group hover:-translate-y-1">
       {' '}
       {/* Image with optimized loading */}
       <div className="relative h-48 overflow-hidden bg-gray-200 dark:bg-gray-700">
@@ -134,7 +134,7 @@ const RoomCard: FC<{ room: Room }> = memo(({ room }) => {
         )}
 
         {/* Category badge */}
-        <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-medium px-2 py-1 rounded-full">
+        <div className="absolute top-3 right-3 bg-gradient-to-r from-blue-500/90 to-cyan-500/90 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/20 shadow-lg group-hover:from-blue-600/95 group-hover:to-cyan-600/95 transition-all duration-300">
           {displayRoomType}
         </div>
       </div>
@@ -206,7 +206,7 @@ const RoomCard: FC<{ room: Room }> = memo(({ room }) => {
             </span>
           </div>
 
-          <button className="text-sm bg-transparent border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white px-3 py-1 rounded-lg transition-colors duration-300">
+          <button className="text-sm bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-400/50 dark:border-blue-400/30 text-blue-600 dark:text-blue-400 hover:from-blue-500 hover:to-cyan-500 hover:text-white hover:border-transparent hover:shadow-lg hover:shadow-blue-500/30 px-4 py-2 rounded-xl backdrop-blur-sm transition-all duration-300 font-medium">
             View
           </button>
         </div>
@@ -220,11 +220,11 @@ RoomCard.displayName = 'RoomCard';
 
 const RoomCards: FC<{ rooms: Room[] }> = memo(({ rooms }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 transition-all duration-300">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 transition-all duration-300">
       {rooms.map((room) => (
         <div
           key={room._id}
-          className="transform transition-all duration-300 hover:scale-[1.02]">
+          className="transform transition-all duration-500 hover:scale-[1.02] hover:z-10">
           <RoomCard room={room} />
         </div>
       ))}

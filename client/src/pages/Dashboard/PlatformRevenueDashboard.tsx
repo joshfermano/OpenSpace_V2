@@ -139,89 +139,89 @@ const PlatformRevenueDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-darkBlue">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex flex-col gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="flex flex-col gap-4 sm:gap-6">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-light">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div className="flex-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 dark:text-light">
                 Platform Revenue
               </h1>
-              <p className="text-gray-600 dark:text-light/80 mt-1">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-light/80 mt-1">
                 Overview of all platform earnings and financial metrics
               </p>
             </div>
 
-            {/* Period Filter */}
-            <div className="flex bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+            {/* Period Filter - Mobile Responsive */}
+            <div className="flex flex-wrap sm:flex-nowrap bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-1">
               <button
                 onClick={() => setPeriod('today')}
-                className={`px-4 py-2 text-sm font-medium ${
+                className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
                   period === 'today'
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:text-darkBlue dark:hover:bg-gray-750'
-                } rounded-l-lg`}>
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}>
                 Today
               </button>
               <button
                 onClick={() => setPeriod('week')}
-                className={`px-4 py-2 text-sm font-medium ${
+                className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
                   period === 'week'
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:text-darkBlue dark:hover:bg-gray-750'
-                } border-x border-gray-200 dark:border-gray-700`}>
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}>
                 Week
               </button>
               <button
                 onClick={() => setPeriod('month')}
-                className={`px-4 py-2 text-sm font-medium ${
+                className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
                   period === 'month'
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:text-darkBlue dark:hover:bg-gray-750'
-                } border-r border-gray-200 dark:border-gray-700`}>
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}>
                 Month
               </button>
               <button
                 onClick={() => setPeriod('year')}
-                className={`px-4 py-2 text-sm font-medium ${
+                className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
                   period === 'year'
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:text-darkBlue dark:hover:bg-gray-750'
-                } border-r border-gray-200 dark:border-gray-700`}>
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}>
                 Year
               </button>
               <button
                 onClick={() => setPeriod('all')}
-                className={`px-4 py-2 text-sm font-medium ${
+                className={`flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all duration-200 ${
                   period === 'all'
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:text-darkBlue dark:hover:bg-gray-750'
-                } rounded-r-lg`}>
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}>
                 All Time
               </button>
             </div>
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm font-medium">
                     Total Revenue
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mt-1 truncate">
                     {formatCurrency(revenueData.summary.totalFees)}
                   </p>
                 </div>
-                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <div className="p-2 sm:p-2.5 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
                   <FiDollarSign
                     className="text-green-600 dark:text-green-400"
-                    size={20}
+                    size={18}
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 sm:mt-3">
                 {period === 'today'
                   ? "Today's earnings"
                   : period === 'week'
@@ -234,24 +234,24 @@ const PlatformRevenueDashboard = () => {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm font-medium">
                     Total Bookings
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                    {revenueData.summary.totalBookings}
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                    {revenueData.summary.totalBookings.toLocaleString()}
                   </p>
                 </div>
-                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <div className="p-2 sm:p-2.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex-shrink-0">
                   <FiUsers
                     className="text-blue-600 dark:text-blue-400"
-                    size={20}
+                    size={18}
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 sm:mt-3">
                 {period === 'today'
                   ? 'Bookings made today'
                   : period === 'week'
@@ -264,47 +264,62 @@ const PlatformRevenueDashboard = () => {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200 sm:col-span-2 lg:col-span-1">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                <div className="flex-1 min-w-0">
+                  <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm font-medium">
                     Average Platform Fee
                   </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mt-1 truncate">
                     {formatCurrency(revenueData.summary.avgFee)}
                   </p>
                 </div>
-                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                <div className="p-2 sm:p-2.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
                   <FiPieChart
                     className="text-purple-600 dark:text-purple-400"
-                    size={20}
+                    size={18}
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 sm:mt-3">
                 Average fee per booking
               </p>
             </div>
           </div>
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
             {/* Monthly Trend Chart */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">
                 Monthly Revenue Trend
               </h2>
-              <div className="h-72">
+              <div className="h-64 sm:h-72">
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={chartData}
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      margin={{
+                        top: 5,
+                        right: window.innerWidth < 640 ? 10 : 30,
+                        left: window.innerWidth < 640 ? 10 : 20,
+                        bottom: 5,
+                      }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: window.innerWidth < 640 ? 10 : 12 }}
+                        interval={window.innerWidth < 640 ? 1 : 0}
+                        angle={window.innerWidth < 640 ? -45 : 0}
+                        textAnchor={window.innerWidth < 640 ? 'end' : 'middle'}
+                      />
                       <YAxis
-                        tickFormatter={(value) => `₱${value / 1000}k`}
-                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) =>
+                          window.innerWidth < 640
+                            ? `₱${value / 1000}k`
+                            : `₱${value / 1000}k`
+                        }
+                        tick={{ fontSize: window.innerWidth < 640 ? 10 : 12 }}
                       />
                       <Tooltip
                         formatter={(value) => [
@@ -312,13 +327,24 @@ const PlatformRevenueDashboard = () => {
                           'Revenue',
                         ]}
                         labelFormatter={(label) => `Month: ${label}`}
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                        }}
                       />
-                      <Bar dataKey="revenue" fill="#3B82F6" name="Revenue" />
+                      <Bar
+                        dataKey="revenue"
+                        fill="#3B82F6"
+                        name="Revenue"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500 dark:text-gray-400 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 text-center text-sm">
                       No monthly trend data available
                     </p>
                   </div>
@@ -327,17 +353,22 @@ const PlatformRevenueDashboard = () => {
             </div>
 
             {/* Payment Methods Chart */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">
                 Revenue by Payment Method
               </h2>
-              <div className="h-72">
+              <div className="h-64 sm:h-72">
                 {paymentMethodChartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={paymentMethodChartData}
                       layout="vertical"
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      margin={{
+                        top: 5,
+                        right: window.innerWidth < 640 ? 10 : 30,
+                        left: window.innerWidth < 640 ? 60 : 20,
+                        bottom: 5,
+                      }}>
                       <CartesianGrid
                         strokeDasharray="3 3"
                         opacity={0.1}
@@ -346,14 +377,18 @@ const PlatformRevenueDashboard = () => {
                       />
                       <XAxis
                         type="number"
-                        tickFormatter={(value) => `₱${value / 1000}k`}
-                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) =>
+                          window.innerWidth < 640
+                            ? `₱${value / 1000}k`
+                            : `₱${value / 1000}k`
+                        }
+                        tick={{ fontSize: window.innerWidth < 640 ? 10 : 12 }}
                       />
                       <YAxis
                         dataKey="name"
                         type="category"
-                        tick={{ fontSize: 12 }}
-                        width={100}
+                        tick={{ fontSize: window.innerWidth < 640 ? 10 : 12 }}
+                        width={window.innerWidth < 640 ? 80 : 100}
                       />
                       <Tooltip
                         formatter={(value) => [
@@ -361,13 +396,24 @@ const PlatformRevenueDashboard = () => {
                           'Revenue',
                         ]}
                         labelFormatter={(label) => `Payment Method: ${label}`}
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                        }}
                       />
-                      <Bar dataKey="value" fill="#10B981" name="Revenue" />
+                      <Bar
+                        dataKey="value"
+                        fill="#10B981"
+                        name="Revenue"
+                        radius={[0, 4, 4, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500 dark:text-gray-400 text-center">
+                    <p className="text-gray-500 dark:text-gray-400 text-center text-sm">
                       No payment method data available
                     </p>
                   </div>
@@ -377,20 +423,20 @@ const PlatformRevenueDashboard = () => {
           </div>
 
           {/* Additional Stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mt-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-4 sm:mb-6">
               Payment Method Breakdown
             </h2>
             {revenueData.byPaymentMethod &&
             revenueData.byPaymentMethod.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {revenueData.byPaymentMethod.map(
                   (method: any, index: number) => (
                     <div
                       key={index}
-                      className="bg-gray-200 dark:bg-gray-600 dark:bg-gray-750 rounded-lg p-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="font-medium text-gray-900 dark:text-white">
+                      className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200/50 dark:border-gray-600/50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-medium text-gray-900 dark:text-white text-sm sm:text-base leading-tight">
                           {method._id === 'property'
                             ? 'Pay at Property'
                             : method._id === 'card'
@@ -402,32 +448,34 @@ const PlatformRevenueDashboard = () => {
                             : method._id}
                         </h3>
                       </div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-3">
                         {formatCurrency(method.totalFees)}
                       </p>
-                      <div className="flex justify-between mt-2 text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Bookings
-                        </span>
-                        <span className="text-gray-900 dark:text-white font-medium">
-                          {method.count}
-                        </span>
-                      </div>
-                      <div className="flex justify-between mt-1 text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">
-                          Avg per booking
-                        </span>
-                        <span className="text-gray-900 dark:text-white font-medium">
-                          {formatCurrency(method.totalFees / method.count)}
-                        </span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs sm:text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Bookings
+                          </span>
+                          <span className="text-gray-900 dark:text-white font-medium">
+                            {method.count.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs sm:text-sm">
+                          <span className="text-gray-500 dark:text-gray-400">
+                            Avg per booking
+                          </span>
+                          <span className="text-gray-900 dark:text-white font-medium">
+                            {formatCurrency(method.totalFees / method.count)}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )
                 )}
               </div>
             ) : (
-              <div className="text-center py-10">
-                <p className="text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 sm:py-10">
+                <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base">
                   No payment method data available for the selected period
                 </p>
               </div>

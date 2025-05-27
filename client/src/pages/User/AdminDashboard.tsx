@@ -148,20 +148,20 @@ const AdminDashboard = () => {
     if (totalPages <= 1) return null;
 
     return (
-      <div className="flex justify-center mt-6 gap-2 pb-4">
+      <div className="flex flex-col sm:flex-row justify-center items-center mt-4 sm:mt-6 gap-3 p-4">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
           Previous
         </button>
-        <span className="px-4 py-2 text-gray-700 dark:text-white">
+        <span className="px-4 py-2 text-gray-700 dark:text-white text-sm font-medium">
           Page {currentPage} of {totalPages}
         </span>
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
           Next
         </button>
       </div>
@@ -562,23 +562,23 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-darkBlue">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex flex-col gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="flex flex-col gap-4 sm:gap-6">
           {/* Header */}
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-light">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800 dark:text-light truncate">
                 Admin Dashboard
               </h1>
-              <p className="text-gray-600 dark:text-light/80 mt-1">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-light/80 mt-1">
                 Manage spaces, users, and verification requests
               </p>
             </div>
 
-            <div>
+            <div className="flex-shrink-0">
               <Link
                 to="/admin/revenue"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors">
+                className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
                 View Revenue Dashboard
               </Link>
             </div>
@@ -588,21 +588,24 @@ const AdminDashboard = () => {
           <DashboardSummary {...summaryData} />
 
           {/* Tabs Navigation */}
-          <div className="flex border-b border-gray-200 dark:border-gray-700">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center px-6 py-3 text-xs md:text-sm font-medium transition-colors
-                  ${
-                    activeTab === tab.id
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
-                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                  }`}>
-                <tab.icon className="mr-2" size={18} />
-                {tab.label}
-              </button>
-            ))}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <div className="flex overflow-x-auto scrollbar-hide">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center whitespace-nowrap px-3 sm:px-4 lg:px-6 py-3 text-xs sm:text-sm font-medium transition-colors flex-shrink-0
+                    ${
+                      activeTab === tab.id
+                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}>
+                  <tab.icon className="mr-1 sm:mr-2 flex-shrink-0" size={16} />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -613,9 +616,9 @@ const AdminDashboard = () => {
                 placeholder={`Search ${activeTab}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 
                   bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 
-                  focus:ring-blue-500 focus:border-transparent outline-none transition-colors"
+                  focus:ring-blue-500 focus:border-transparent outline-none transition-colors text-sm sm:text-base"
               />
             </div>
           )}

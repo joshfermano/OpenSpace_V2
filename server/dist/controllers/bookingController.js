@@ -89,7 +89,6 @@ const updateBookingStatus = (req, res) => __awaiter(void 0, void 0, void 0, func
     try {
         const { bookingId } = req.params;
         const { status, reason } = req.body;
-        // Validate status
         const validStatuses = [
             'pending',
             'confirmed',
@@ -104,7 +103,6 @@ const updateBookingStatus = (req, res) => __awaiter(void 0, void 0, void 0, func
             });
             return;
         }
-        // Find booking
         const booking = yield Booking_1.default.findById(bookingId);
         if (!booking) {
             res.status(404).json({
@@ -113,9 +111,7 @@ const updateBookingStatus = (req, res) => __awaiter(void 0, void 0, void 0, func
             });
             return;
         }
-        // Update status
         booking.bookingStatus = status;
-        // Handle cancellation details if status is cancelled or rejected
         if (['cancelled', 'rejected'].includes(status)) {
             booking.cancellationDetails = {
                 cancelledAt: new Date(),
@@ -142,7 +138,6 @@ exports.updateBookingStatus = updateBookingStatus;
 const deleteBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { bookingId } = req.params;
-        // Check if booking exists
         const booking = yield Booking_1.default.findById(bookingId);
         if (!booking) {
             res.status(404).json({
@@ -151,7 +146,6 @@ const deleteBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
-        // Check if booking can be safely deleted
         if (booking.bookingStatus === 'confirmed') {
             res.status(400).json({
                 success: false,
@@ -159,7 +153,6 @@ const deleteBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
-        // Delete booking
         yield Booking_1.default.findByIdAndDelete(bookingId);
         res.status(200).json({
             success: true,
@@ -186,7 +179,6 @@ const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         }
         const userId = req.user.id;
         const { roomId, checkIn, checkOut, checkInTime, checkOutTime, guests, totalPrice, priceBreakdown, specialRequests, paymentMethod, } = req.body;
-        // Fetch the full user document to check verification status
         const user = yield User_1.default.findById(userId);
         if (!user) {
             res.status(404).json({
@@ -195,7 +187,6 @@ const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
-        // Security check for 'Pay at Property'
         if (paymentMethod === 'property') {
             if (user.role !== 'admin' && user.verificationLevel !== 'verified') {
                 res.status(403).json({
@@ -205,31 +196,8 @@ const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 return;
             }
         }
-        // Convert times to 24-hour format for storage
         const normalizedCheckInTime = convertTo24HourFormat(checkInTime || '2:00 PM');
         const normalizedCheckOutTime = convertTo24HourFormat(checkOutTime || '12:00 PM');
-        // --- START NEW VALIDATION ---
-        // Combine check-in date and time
-        const [hours, minutes] = normalizedCheckInTime.split(':').map(Number);
-        const bookingDateTime = new Date(checkIn); // checkIn should be in YYYY-MM-DD format from client
-        // Important: Ensure 'checkIn' from client is treated as local date, then set time
-        // If checkIn is already a Date object from client, this needs to be handled carefully
-        // Assuming checkIn is a string like '2024-05-22'
-        const year = bookingDateTime.getFullYear();
-        const month = bookingDateTime.getMonth(); // 0-indexed
-        const day = bookingDateTime.getDate();
-        // Create the final booking date and time object, treating it as local time
-        const finalBookingDateTime = new Date(year, month, day, hours, minutes);
-        const currentDateTime = new Date();
-        if (finalBookingDateTime < currentDateTime) {
-            res.status(400).json({
-                success: false,
-                message: 'Booking date and time cannot be in the past.',
-            });
-            return;
-        }
-        // --- END NEW VALIDATION ---
-        // Check if room exists
         const room = yield Room_1.default.findById(roomId);
         if (!room) {
             res.status(404).json({
@@ -238,6 +206,68 @@ const createBooking = (req, res) => __awaiter(void 0, void 0, void 0, function* 
             });
             return;
         }
+        const [hours, minutes] = normalizedCheckInTime.split(':').map(Number);
+        const bookingDateTime = new Date(checkIn);
+        const year = bookingDateTime.getFullYear();
+        const month = bookingDateTime.getMonth();
+        const day = bookingDateTime.getDate();
+        const finalBookingDateTime = new Date(year, month, day, hours, minutes);
+        const currentDateTime = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const bookingDate = new Date(checkIn);
+        bookingDate.setHours(0, 0, 0, 0);
+        // Different validation based on room type
+        if (room.type === 'stay') {
+            // Room stays: Cannot book for same day (requires advance booking for overnight stays)
+            if (bookingDate.getTime() === today.getTime()) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Room stays cannot be booked for the same day. Please book at least one day in advance for overnight accommodations.',
+                });
+                return;
+            }
+            // Also check if the booking date and time is in the past
+            if (finalBookingDateTime < currentDateTime) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Booking date and time cannot be in the past.',
+                });
+                return;
+            }
+        }
+        else if (room.type === 'event' || room.type === 'conference') {
+            // Events and conference rooms: Allow same-day booking but check if time is in the past
+            if (finalBookingDateTime < currentDateTime) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Booking time cannot be in the past. Please select a future time for your event or meeting.',
+                });
+                return;
+            }
+            // For same-day bookings of events/conferences, ensure at least 2 hours advance notice
+            const twoHoursFromNow = new Date();
+            twoHoursFromNow.setHours(twoHoursFromNow.getHours() + 2);
+            if (bookingDate.getTime() === today.getTime() &&
+                finalBookingDateTime < twoHoursFromNow) {
+                res.status(400).json({
+                    success: false,
+                    message: 'For same-day bookings, please book at least 2 hours in advance to allow preparation time.',
+                });
+                return;
+            }
+        }
+        else {
+            // Fallback for any other room types
+            if (finalBookingDateTime < currentDateTime) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Booking date and time cannot be in the past.',
+                });
+                return;
+            }
+        }
+        // --- END NEW VALIDATION ---
         // Check if dates are available
         const checkInDate = new Date(checkIn);
         const checkOutDate = new Date(checkOut);

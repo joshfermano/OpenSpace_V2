@@ -105,8 +105,8 @@ const BookingPanel = ({
 
   // Function to check if selected date/time is in the past
   const validateDateTime = () => {
-    if (!dateRange[0] || !checkInTime) {
-      setIsPastDateTimeError(false); // Not enough info yet
+    if (!dateRange[0] || !checkInTime || !room) {
+      setIsPastDateTimeError(false);
       return;
     }
 
@@ -131,27 +131,59 @@ const BookingPanel = ({
     );
 
     const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    if (selectedDateTime < now) {
-      setIsPastDateTimeError(true);
+    const selectedDateOnly = new Date(selectedDate);
+    selectedDateOnly.setHours(0, 0, 0, 0);
+
+    // Different validation based on room type
+    if (room.type === 'stay') {
+      // Room stays: Cannot book for same day, must be future date
+      if (selectedDateOnly.getTime() === today.getTime()) {
+        setIsPastDateTimeError(true);
+        return;
+      }
+
+      if (selectedDateTime < now) {
+        setIsPastDateTimeError(true);
+        return;
+      }
+    } else if (room.type === 'event' || room.type === 'conference') {
+      // Events and conference rooms: Allow same-day but check 2-hour advance notice
+      if (selectedDateTime < now) {
+        setIsPastDateTimeError(true);
+        return;
+      }
+
+      // For same-day bookings, require at least 2 hours advance notice
+      if (selectedDateOnly.getTime() === today.getTime()) {
+        const twoHoursFromNow = new Date();
+        twoHoursFromNow.setHours(twoHoursFromNow.getHours() + 2);
+
+        if (selectedDateTime < twoHoursFromNow) {
+          setIsPastDateTimeError(true);
+          return;
+        }
+      }
     } else {
-      setIsPastDateTimeError(false);
+      if (selectedDateTime < now) {
+        setIsPastDateTimeError(true);
+        return;
+      }
     }
+
+    setIsPastDateTimeError(false);
   };
 
-  // Call validateDateTime whenever dateRange or checkInTime changes
   useEffect(() => {
     validateDateTime();
-  }, [dateRange[0], checkInTime]);
+  }, [dateRange[0], checkInTime, room]);
 
-  // Process existing bookings and unavailable dates - run with a stable dependency array
   useEffect(() => {
-    // Don't process if we've already done it and have unavailable dates,
-    // UNLESS the unavailableDates or existingBookings props have changed
     const existingBookingsCount = existingBookings?.length || 0;
     const unavailableDatesCount = unavailableDates?.length || 0;
 
-    // Check if the data has changed since the last processing
     const dataChanged =
       existingBookingsCount !== 0 ||
       unavailableDatesCount !== 0 ||
@@ -659,12 +691,17 @@ const BookingPanel = ({
   }): boolean => {
     if (view !== 'month') return false;
 
-    // Disable past dates
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (date < today) return true;
 
-    // Disable dates that are unavailable (either host blocked or already booked)
+    if (room?.type === 'stay') {
+      if (date <= today) return true;
+    } else if (room?.type === 'event' || room?.type === 'conference') {
+      if (date < today) return true;
+    } else {
+      if (date < today) return true;
+    }
+
     return isDateUnavailable(date);
   };
 
@@ -687,7 +724,28 @@ const BookingPanel = ({
     }
 
     if (isPastDateTimeError) {
-      toast.error('Cannot book a date or time that has already passed.');
+      if (room.type === 'stay') {
+        toast.error(
+          'Room stays cannot be booked for the same day. Please select a future date for overnight accommodation.'
+        );
+      } else if (room.type === 'event' || room.type === 'conference') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selectedDate = new Date(dateRange[0]!);
+        selectedDate.setHours(0, 0, 0, 0);
+
+        if (selectedDate.getTime() === today.getTime()) {
+          toast.error(
+            'For same-day bookings, please book at least 2 hours in advance to allow preparation time.'
+          );
+        } else {
+          toast.error(
+            'Cannot book a time that has already passed. Please select a future time.'
+          );
+        }
+      } else {
+        toast.error('Cannot book a date or time that has already passed.');
+      }
       return;
     }
 
@@ -827,18 +885,36 @@ const BookingPanel = ({
       <div className="mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
         <div className="flex items-start">
           <FiAlertCircle className="mt-0.5 mr-2 text-blue-500" />
-          <p className="text-blue-700 dark:text-blue-400">
-            This calendar shows real-time availability.
-            {allUnavailableDates.length > 0 ? (
-              <span>
-                {' '}
-                There are {allUnavailableDates.length} dates unavailable (marked
-                in red).
-              </span>
-            ) : (
-              <span> All dates are currently available for booking.</span>
+          <div className="text-blue-700 dark:text-blue-400">
+            <p className="mb-2">
+              This calendar shows real-time availability.
+              {allUnavailableDates.length > 0 ? (
+                <span>
+                  {' '}
+                  There are {allUnavailableDates.length} dates unavailable
+                  (marked in red).
+                </span>
+              ) : (
+                <span> All dates are currently available for booking.</span>
+              )}
+            </p>
+
+            {/* Room type specific booking rules */}
+            {room?.type === 'stay' && (
+              <p className="text-xs bg-blue-100 dark:bg-blue-800/30 px-2 py-1 rounded">
+                <strong>Room Stays:</strong> Must be booked at least one day in
+                advance for overnight accommodations.
+              </p>
             )}
-          </p>
+            {(room?.type === 'event' || room?.type === 'conference') && (
+              <p className="text-xs bg-green-100 dark:bg-green-800/30 px-2 py-1 rounded">
+                <strong>
+                  {room.type === 'event' ? 'Events' : 'Conference Rooms'}:
+                </strong>{' '}
+                Same-day bookings allowed with 2-hour advance notice.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

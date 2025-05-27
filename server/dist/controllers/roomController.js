@@ -86,27 +86,46 @@ exports.createRoom = createRoom;
 // Get all rooms with filtering and pagination
 const getRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { type, city, minPrice, maxPrice, maxGuests, startDate, endDate, amenities, } = req.query;
-        // Build filter object
-        const filter = {
+        const { type, city, minPrice, maxPrice, maxGuests, startDate, endDate, amenities, search, } = req.query;
+        // Build base filter object
+        const baseFilter = {
             isPublished: true,
             status: 'approved',
         };
-        // Add filters if provided
+        const filterConditions = [];
+        if (search) {
+            const searchPattern = new RegExp(search, 'i');
+            filterConditions.push({
+                $or: [
+                    { title: searchPattern },
+                    { description: searchPattern },
+                    { 'location.city': searchPattern },
+                    { 'location.state': searchPattern },
+                    { 'location.country': searchPattern },
+                    { type: searchPattern },
+                    { amenities: searchPattern },
+                ],
+            });
+        }
+        const additionalFilters = {};
         if (type)
-            filter.type = type;
+            additionalFilters.type = type;
         if (city)
-            filter['location.city'] = new RegExp(city, 'i');
+            additionalFilters['location.city'] = new RegExp(city, 'i');
         if (minPrice)
-            filter['price.basePrice'] = { $gte: parseInt(minPrice) };
+            additionalFilters['price.basePrice'] = {
+                $gte: parseInt(minPrice),
+            };
         if (maxPrice) {
-            filter['price.basePrice'] = Object.assign(Object.assign({}, filter['price.basePrice']), { $lte: parseInt(maxPrice) });
+            additionalFilters['price.basePrice'] = Object.assign(Object.assign({}, additionalFilters['price.basePrice']), { $lte: parseInt(maxPrice) });
         }
         if (maxGuests)
-            filter['capacity.maxGuests'] = { $gte: parseInt(maxGuests) };
+            additionalFilters['capacity.maxGuests'] = {
+                $gte: parseInt(maxGuests),
+            };
         if (amenities) {
             const amenitiesList = amenities.split(',');
-            filter.amenities = { $all: amenitiesList };
+            additionalFilters.amenities = { $all: amenitiesList };
         }
         // Date filtering logic
         if (startDate && endDate) {
@@ -120,7 +139,7 @@ const getRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 });
                 return;
             }
-            filter.$and = [
+            additionalFilters.$and = [
                 { 'availability.startDate': { $lte: end } },
                 { 'availability.endDate': { $gte: start } },
                 {
@@ -135,6 +154,21 @@ const getRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
                 },
             ];
         }
+        // Combine all filters
+        const finalFilter = Object.assign({}, baseFilter);
+        // Add additional filters to the base filter
+        Object.assign(finalFilter, additionalFilters);
+        // If we have search conditions, combine them with other filters using $and
+        if (filterConditions.length > 0) {
+            if (finalFilter.$and) {
+                // If we already have $and from date filtering, combine them
+                finalFilter.$and = [...finalFilter.$and, ...filterConditions];
+            }
+            else {
+                // If we only have search conditions, just add them
+                finalFilter.$and = filterConditions;
+            }
+        }
         // Pagination
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -145,12 +179,12 @@ const getRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         const sortOrder = req.query.sortOrder || 'desc';
         sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
         // Execute query
-        const rooms = yield Room_1.default.find(filter)
+        const rooms = yield Room_1.default.find(finalFilter)
             .populate('host', 'firstName lastName profileImage hostInfo')
             .skip(skip)
             .limit(limit)
             .sort(sort);
-        const total = yield Room_1.default.countDocuments(filter);
+        const total = yield Room_1.default.countDocuments(finalFilter);
         res.status(200).json({
             success: true,
             count: rooms.length,

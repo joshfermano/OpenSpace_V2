@@ -175,21 +175,6 @@ const HomepageOptimized = () => {
             );
           }
 
-          // Apply additional client-side search filtering if needed
-          if (debouncedSearch.trim() && !params.search) {
-            const searchLower = debouncedSearch.toLowerCase();
-            newRooms = newRooms.filter(
-              (room: Room) =>
-                room.title?.toLowerCase().includes(searchLower) ||
-                room.location?.city?.toLowerCase().includes(searchLower) ||
-                room.location?.country?.toLowerCase().includes(searchLower) ||
-                room.description?.toLowerCase().includes(searchLower) ||
-                room.amenities?.some((amenity: string) =>
-                  amenity.toLowerCase().includes(searchLower)
-                )
-            );
-          }
-
           if (resetRooms || page === 1) {
             setRooms(newRooms);
           } else {
@@ -372,149 +357,162 @@ const HomepageOptimized = () => {
   ]);
 
   return (
-    <section className="font-poppins p-4 bg-light text-darkBlue dark:bg-darkBlue dark:text-light transition-all duration-300">
-      <header className="max-w-7xl mx-auto">
-        <div className="w-full flex items-center justify-between gap-4">
-          <div className="relative w-full md:w-[60%]">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full border border-darkBlue p-2 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:bg-gray-800 dark:border-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-400"
-              placeholder="Search for places, events, conferences, or amenities..."
-            />
-            <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl" />
-          </div>
+    <section className="font-poppins min-h-screen bg-gradient-to-br from-light via-blue-50/30 to-slate-100/50 dark:bg-gradient-to-br dark:from-darkBlue dark:via-slate-900/90 dark:to-gray-900/80 text-darkBlue dark:text-light transition-all duration-300 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400/15 to-blue-500/15 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/3 left-1/2 transform -translate-x-1/2 w-64 h-64 bg-gradient-to-r from-violet-400/10 to-pink-400/10 rounded-full blur-2xl animate-pulse delay-500"></div>
+      </div>
 
-          <button
-            onClick={toggleFilter}
-            className="flex items-center gap-2 px-3 py-1 border border-darkBlue dark:border-light hover:bg-darkBlue hover:text-light dark:hover:bg-light dark:hover:text-darkBlue rounded-lg hover:scale-105 transition duration-300 cursor-pointer">
-            {filter ? (
-              <span className="flex items-center gap-2">
-                <MdOutlineFilterListOff className="text-xl" />
-                <span className="hidden sm:inline">Filter</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <MdOutlineFilterList className="text-xl" />
-                <span className="hidden sm:inline">Filter</span>
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Filter options */}
-        {filter && (
-          <div className="mt-4 p-5 bg-white/80 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl shadow-lg transition-all duration-300">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium">Filter by category</h2>
-              <button
-                onClick={toggleFilter}
-                className="text-gray-500 dark:text-gray-400 hover:text-darkBlue dark:hover:text-light">
-                <MdOutlineFilterListOff className="text-xl" />
-              </button>
+      <div className="relative z-10 p-4">
+        <header className="max-w-7xl mx-auto">
+          <div className="w-full flex items-center justify-between gap-4">
+            <div className="relative w-full md:w-[60%]">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full border border-darkBlue p-2 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:bg-gray-800 dark:border-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-400"
+                placeholder="Search for places, events, conferences, or amenities..."
+              />
+              <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {Object.keys(categoryFilters).map((category) => (
-                <div
-                  key={category}
-                  className={`flex items-center gap-3 p-3 border ${
-                    categoryFilters[category as keyof typeof categoryFilters]
-                      ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'
-                      : 'border-gray-200 dark:border-gray-700'
-                  } rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer group`}
-                  onClick={() => handleCategoryChange(category)}>
-                  <input
-                    type="checkbox"
-                    id={category.toLowerCase().replace(' ', '-')}
-                    checked={
-                      categoryFilters[category as keyof typeof categoryFilters]
-                    }
-                    onChange={() => {}}
-                    className="w-5 h-5 text-blue-500 rounded border-gray-300 focus:ring-blue-400 cursor-pointer"
-                  />
-                  <label
-                    htmlFor={category.toLowerCase().replace(' ', '-')}
-                    className="flex-1 cursor-pointer font-medium group-hover:text-blue-500 transition-colors">
-                    {category}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </header>
-
-      <main className="mt-10 max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold mb-2">Discover unique spaces</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Find and book accommodations, conference rooms, and event venues
-            across the Philippines
-          </p>
-        </div>
-
-        {error ? (
-          <div className="min-h-[400px] flex flex-col items-center justify-center py-12 text-center">
-            <div className="text-red-400 dark:text-red-500 text-6xl mb-4">
-              ⚠️
-            </div>
-            <h2 className="text-xl font-semibold mb-2 text-red-600 dark:text-red-400">
-              {error}
-            </h2>
             <button
-              onClick={retryFetch}
-              className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-              Try Again
+              onClick={toggleFilter}
+              className="flex items-center gap-2 px-3 py-1 border border-darkBlue dark:border-light hover:bg-darkBlue hover:text-light dark:hover:bg-light dark:hover:text-darkBlue rounded-lg hover:scale-105 transition duration-300 cursor-pointer">
+              {filter ? (
+                <span className="flex items-center gap-2">
+                  <MdOutlineFilterListOff className="text-xl" />
+                  <span className="hidden sm:inline">Filter</span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <MdOutlineFilterList className="text-xl" />
+                  <span className="hidden sm:inline">Filter</span>
+                </span>
+              )}
             </button>
           </div>
-        ) : pagination.loading ? (
-          <div className="flex justify-center items-center min-h-[400px]">
-            <div className="loading-spinner">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-600 dark:text-gray-400">
-                Loading spaces...
-              </p>
-            </div>
-          </div>
-        ) : rooms.length > 0 ? (
-          <>
-            <RoomCards rooms={rooms} />
 
-            {/* Infinite scroll loading indicator */}
-            {pagination.hasMore && (
-              <div
-                ref={loadingElementRef}
-                className="infinite-scroll-trigger flex justify-center items-center py-8">
-                {pagination.loadingMore ? (
-                  <div className="loading-more-indicator">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      Loading more spaces...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="load-more-placeholder">
-                    <div className="h-4 w-4 rounded-full bg-gray-300 dark:bg-gray-600 animate-pulse"></div>
-                  </div>
-                )}
+          {/* Filter options */}
+          {filter && (
+            <div className="mt-4 p-5 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl shadow-blue-500/10 dark:shadow-purple-500/10 transition-all duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium">Filter by category</h2>
+                <button
+                  onClick={toggleFilter}
+                  className="text-gray-500 dark:text-gray-400 hover:text-darkBlue dark:hover:text-light">
+                  <MdOutlineFilterListOff className="text-xl" />
+                </button>
               </div>
-            )}
-          </>
-        ) : (
-          <div className="min-h-[400px] flex flex-col items-center justify-center py-12 text-center">
-            <div className="text-gray-400 dark:text-gray-500 text-6xl mb-4">
-              🔍
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {Object.keys(categoryFilters).map((category) => (
+                  <div
+                    key={category}
+                    className={`flex items-center gap-3 p-3 border ${
+                      categoryFilters[category as keyof typeof categoryFilters]
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'
+                        : 'border-gray-200 dark:border-gray-700'
+                    } rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer group`}
+                    onClick={() => handleCategoryChange(category)}>
+                    <input
+                      type="checkbox"
+                      id={category.toLowerCase().replace(' ', '-')}
+                      checked={
+                        categoryFilters[
+                          category as keyof typeof categoryFilters
+                        ]
+                      }
+                      onChange={() => {}}
+                      className="w-5 h-5 text-blue-500 rounded border-gray-300 focus:ring-blue-400 cursor-pointer"
+                    />
+                    <label
+                      htmlFor={category.toLowerCase().replace(' ', '-')}
+                      className="flex-1 cursor-pointer font-medium group-hover:text-blue-500 transition-colors">
+                      {category}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
-            <h2 className="text-xl font-semibold mb-2">No spaces found</h2>
-            <p className="text-gray-500 dark:text-gray-400 max-w-md">
-              We couldn't find any spaces matching your search criteria. Try
-              adjusting your filters or search terms.
+          )}
+        </header>
+
+        <main className="mt-10 max-w-7xl mx-auto">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 dark:from-blue-400 dark:via-purple-400 dark:to-cyan-400 bg-clip-text text-transparent">
+              Discover unique spaces
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300 text-lg max-w-2xl mx-auto leading-relaxed">
+              Find and book accommodations, conference rooms, and event venues
+              across the Philippines
             </p>
           </div>
-        )}
-      </main>
+
+          {error ? (
+            <div className="min-h-[400px] flex flex-col items-center justify-center py-12 text-center">
+              <div className="text-red-400 dark:text-red-500 text-6xl mb-4">
+                ⚠️
+              </div>
+              <h2 className="text-xl font-semibold mb-2 text-red-600 dark:text-red-400">
+                {error}
+              </h2>
+              <button
+                onClick={retryFetch}
+                className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                Try Again
+              </button>
+            </div>
+          ) : pagination.loading ? (
+            <div className="flex justify-center items-center min-h-[400px]">
+              <div className="loading-spinner">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                <p className="mt-4 text-gray-600 dark:text-gray-400">
+                  Loading spaces...
+                </p>
+              </div>
+            </div>
+          ) : rooms.length > 0 ? (
+            <>
+              <RoomCards rooms={rooms} />
+
+              {/* Infinite scroll loading indicator */}
+              {pagination.hasMore && (
+                <div
+                  ref={loadingElementRef}
+                  className="infinite-scroll-trigger flex justify-center items-center py-8">
+                  {pagination.loadingMore ? (
+                    <div className="loading-more-indicator">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Loading more spaces...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="load-more-placeholder">
+                      <div className="h-4 w-4 rounded-full bg-gray-300 dark:bg-gray-600 animate-pulse"></div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="min-h-[400px] flex flex-col items-center justify-center py-12 text-center">
+              <div className="text-gray-400 dark:text-gray-500 text-6xl mb-4">
+                🔍
+              </div>
+              <h2 className="text-xl font-semibold mb-2">No spaces found</h2>
+              <p className="text-gray-500 dark:text-gray-400 max-w-md">
+                We couldn't find any spaces matching your search criteria. Try
+                adjusting your filters or search terms.
+              </p>
+            </div>
+          )}
+        </main>
+      </div>
     </section>
   );
 };

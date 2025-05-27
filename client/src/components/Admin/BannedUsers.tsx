@@ -158,20 +158,20 @@ const BannedUsers = () => {
 
   const renderPagination = () => {
     return (
-      <div className="flex justify-center mt-6 gap-2 pb-4">
+      <div className="flex flex-col sm:flex-row justify-center items-center mt-4 sm:mt-6 gap-3 p-4">
         <button
           onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
           Previous
         </button>
-        <span className="px-4 py-2 text-gray-700 dark:text-white">
+        <span className="px-4 py-2 text-gray-700 dark:text-white text-sm font-medium">
           Page {currentPage} of {totalPages}
         </span>
         <button
           onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage >= totalPages}
-          className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600">
+          className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-white disabled:opacity-50 transition-colors hover:bg-gray-200 dark:hover:bg-gray-600 text-sm">
           Next
         </button>
       </div>
@@ -191,42 +191,44 @@ const BannedUsers = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center">
-            <FiAlertCircle className="text-red-500 mr-2" size={20} />
-            Banned Users
-            <span className="ml-2 px-2.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs font-medium rounded-full">
-              {filteredBannedUsers.length}
-            </span>
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage users who have been banned from the platform
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FiSearch className="text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search banned users..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 
-                bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 
-                focus:ring-blue-500 focus:border-transparent outline-none transition-colors"
-            />
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
+      <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div className="flex-1">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white flex items-center flex-wrap gap-2">
+              <FiAlertCircle className="text-red-500 flex-shrink-0" size={20} />
+              <span>Banned Users</span>
+              <span className="px-2.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs font-medium rounded-full">
+                {filteredBannedUsers.length}
+              </span>
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Manage users who have been banned from the platform
+            </p>
           </div>
-          <button
-            onClick={() => fetchBannedUsers(currentPage)}
-            className="flex items-center px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-            <FiRefreshCcw className="mr-2" size={16} />
-            Refresh
-          </button>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="text-gray-400" size={16} />
+              </div>
+              <input
+                type="text"
+                placeholder="Search banned users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 
+                  bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 
+                  focus:ring-blue-500 focus:border-transparent outline-none transition-colors text-sm"
+              />
+            </div>
+            <button
+              onClick={() => fetchBannedUsers(currentPage)}
+              className="flex items-center justify-center px-3 sm:px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors whitespace-nowrap text-sm">
+              <FiRefreshCcw className="mr-2" size={16} />
+              Refresh
+            </button>
+          </div>
         </div>
       </div>
 
@@ -237,33 +239,134 @@ const BannedUsers = () => {
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      {/* Mobile Cards View */}
+      <div className="block sm:hidden">
+        <div className="p-4 space-y-4">
+          {filteredBannedUsers.length > 0 ? (
+            filteredBannedUsers.map((user) => (
+              <div
+                key={user.id}
+                className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
+                onClick={() => viewUserDetails(user)}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3 flex-1 min-w-0">
+                    <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                      {user.profileImage ? (
+                        <img
+                          src={
+                            user.profileImage.startsWith('http')
+                              ? user.profileImage
+                              : `${import.meta.env.VITE_API_URL || ''}${
+                                  user.profileImage
+                                }`
+                          }
+                          alt={user.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement!.innerHTML =
+                              '<div class="h-full w-full flex items-center justify-center"><svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>';
+                          }}
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-gray-400">
+                          <FiUser size={20} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {user.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {user.email}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="flex flex-col items-end space-y-2"
+                    onClick={(e) => e.stopPropagation()}>
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.role === 'admin'
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                          : user.role === 'host'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                      }`}>
+                      {user.role}
+                    </span>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleUnbanUser(user.id, user.name)}
+                        className="p-1.5 rounded-lg text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                        title="Unban User">
+                        <FiRefreshCcw size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id, user.name)}
+                        className="p-1.5 rounded-lg text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                        title="Delete User">
+                        <FiTrash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="flex items-center">
+                    <FiCalendar className="mr-1 flex-shrink-0" size={12} />
+                    <span>Joined: {user.joinDate}</span>
+                  </div>
+                  <div className="flex items-start">
+                    <FiAlertCircle
+                      className="text-red-500 mr-1 flex-shrink-0 mt-0.5"
+                      size={12}
+                    />
+                    <span className="line-clamp-2">
+                      {user.banReason || 'No reason provided'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+              {searchTerm
+                ? 'No users found matching your search criteria'
+                : 'No banned users found'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-100 dark:bg-gray-900">
+          <thead className="bg-gray-50 dark:bg-gray-800/50">
             <tr>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 User
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Role
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                className="hidden lg:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Joined
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                className="hidden md:table-cell px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Ban Reason
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -273,11 +376,11 @@ const BannedUsers = () => {
               filteredBannedUsers.map((user) => (
                 <tr
                   key={user.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                   onClick={() => viewUserDetails(user)}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                      <div className="flex-shrink-0 h-8 sm:h-10 w-8 sm:w-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                         {user.profileImage ? (
                           <img
                             src={
@@ -292,28 +395,28 @@ const BannedUsers = () => {
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
                               e.currentTarget.parentElement!.innerHTML =
-                                '<div class="h-full w-full flex items-center justify-center"><svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>';
+                                '<div class="h-full w-full flex items-center justify-center"><svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>';
                             }}
                           />
                         ) : (
                           <div className="h-full w-full flex items-center justify-center text-gray-400">
-                            <FiUser size={20} />
+                            <FiUser size={18} />
                           </div>
                         )}
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="ml-3 sm:ml-4 min-w-0 flex-1">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {user.name}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
                           {user.email}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         user.role === 'admin'
                           ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
                           : user.role === 'host'
@@ -323,14 +426,14 @@ const BannedUsers = () => {
                       {user.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="hidden lg:table-cell px-4 sm:px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 dark:text-white flex items-center">
-                      <FiCalendar className="mr-1" size={14} />
-                      {user.joinDate}
+                      <FiCalendar className="mr-1 flex-shrink-0" size={14} />
+                      <span>{user.joinDate}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center max-w-xs truncate">
+                  <td className="hidden md:table-cell px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center max-w-xs">
                       <FiAlertCircle
                         className="text-red-500 mr-1 flex-shrink-0"
                         size={14}
@@ -341,9 +444,9 @@ const BannedUsers = () => {
                     </div>
                   </td>
                   <td
-                    className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+                    className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
                     onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-end space-x-2">
+                    <div className="flex justify-end space-x-1 sm:space-x-2">
                       <button
                         onClick={() => handleUnbanUser(user.id, user.name)}
                         className="p-1.5 rounded-lg text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
@@ -364,7 +467,7 @@ const BannedUsers = () => {
               <tr>
                 <td
                   colSpan={5}
-                  className="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+                  className="px-4 sm:px-6 py-8 sm:py-10 text-center text-gray-500 dark:text-gray-400 text-sm">
                   {searchTerm
                     ? 'No users found matching your search criteria'
                     : 'No banned users found'}

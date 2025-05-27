@@ -75,28 +75,29 @@ const DashboardSummary = ({
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
       {summaryCards.map((card, index) => (
         <div
           key={index}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow duration-300">
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 p-4 sm:p-6 hover:shadow-md transition-all duration-300 hover:-translate-y-1">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm sm:text-base lg:text-lg font-medium text-gray-900 dark:text-white">
                 {card.title}
               </h3>
-              <p className="text-3xl font-bold mt-2 text-gray-900 dark:text-white">
+              <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-1 sm:mt-2 text-gray-900 dark:text-white">
                 {card.value.toLocaleString()}
               </p>
             </div>
-            <div className={`p-3 rounded-full ${card.color}`}>
-              <card.icon size={24} />
+            <div
+              className={`p-2 sm:p-3 rounded-full flex-shrink-0 ${card.color}`}>
+              <card.icon size={window.innerWidth < 640 ? 20 : 24} />
             </div>
           </div>
 
           {/* For hosts, add additional info */}
           {card.title === 'Total Spaces' && (
-            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="mt-3 sm:mt-4 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
               <span className="font-medium">{hostCount.toLocaleString()}</span>{' '}
               active hosts
             </div>
