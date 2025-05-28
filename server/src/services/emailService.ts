@@ -3,10 +3,12 @@ import 'dotenv/config';
 
 const VERIFIED_SENDER = process.env.EMAIL_FROM || 'openspacereserve@gmail.com';
 
+// Helper function to format currency in Philippine Peso
 const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-PH', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'PHP',
+    minimumFractionDigits: 2,
   }).format(amount);
 };
 
@@ -721,7 +723,27 @@ export const sendBookingReceiptEmail = async (
   to: string,
   receiptDetails: {
     referenceNumber: string;
-    bookingDetails: any;
+    bookingDetails: {
+      bookingId?: any;
+      propertyName: string;
+      location: string;
+      checkInDate: string;
+      checkOutDate: string;
+      checkInTime: string;
+      checkOutTime: string;
+      guestCount: number;
+      children?: number;
+      infants?: number;
+      guestName?: string;
+      totalPrice: number;
+      subtotal?: number;
+      serviceFee?: number;
+      priceBreakdown?: any;
+      nightsCount?: number;
+      numberOfDays?: number;
+      specialRequests?: string;
+      roomName: string;
+    };
     paymentMethod: string;
     paymentStatus: string;
     date: string;
@@ -742,119 +764,321 @@ export const sendBookingReceiptEmail = async (
     ? `${baseUrl}/bookings/${bookingDetails.bookingId}`
     : `${baseUrl}/dashboard/bookings`;
 
-  // Format currency
+  // Format currency in Philippine Peso
   const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-PH', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'PHP',
+      minimumFractionDigits: 2,
     }).format(amount);
   };
 
+  // Calculate proper price breakdown
+  const subtotal =
+    bookingDetails.subtotal ||
+    bookingDetails.priceBreakdown?.basePrice ||
+    bookingDetails.totalPrice * 0.9;
+  const serviceFee =
+    bookingDetails.serviceFee ||
+    bookingDetails.priceBreakdown?.serviceFee ||
+    bookingDetails.totalPrice * 0.1;
+
   // Create HTML table for price breakdown
-  let priceBreakdownHtml = '';
-  if (bookingDetails.priceBreakdown) {
-    const { basePrice, cleaningFee, serviceFee } =
-      bookingDetails.priceBreakdown;
-    priceBreakdownHtml = `
-      <tr>
-        <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Base Price (${
-          bookingDetails.nightsCount || 1
-        } night${bookingDetails.nightsCount > 1 ? 's' : ''})</td>
-        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">${formatPrice(
-          basePrice || 0
-        )}</td>
-      </tr>
-      ${
-        cleaningFee
-          ? `
-      <tr>
-        <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Cleaning Fee</td>
-        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">${formatPrice(
-          cleaningFee
-        )}</td>
-      </tr>`
-          : ''
-      }
-      ${
-        serviceFee
-          ? `
-      <tr>
-        <td style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Service Fee</td>
-        <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">${formatPrice(
-          serviceFee
-        )}</td>
-      </tr>`
-          : ''
-      }
-    `;
-  }
+  const priceBreakdownHtml = `
+    <tr>
+      <td style="padding: 12px 0; text-align: left; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
+        Base Price (${
+          bookingDetails.numberOfDays || bookingDetails.nightsCount || 1
+        } ${
+    (bookingDetails.numberOfDays || bookingDetails.nightsCount || 1) > 1
+      ? 'days'
+      : 'day'
+  })
+      </td>
+      <td style="padding: 12px 0; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #111827;">
+        ${formatPrice(subtotal)}
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 12px 0; text-align: left; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Service Fee (10%)</td>
+      <td style="padding: 12px 0; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 600; color: #111827;">
+        ${formatPrice(serviceFee)}
+      </td>
+    </tr>
+  `;
+
+  // Status styling
+  const getStatusStyle = () => {
+    if (paymentMethod === 'property') {
+      return {
+        bgColor: '#fef3c7',
+        borderColor: '#f59e0b',
+        textColor: '#92400e',
+        icon: '⏳',
+        title: 'Pending Host Approval',
+      };
+    } else if (paymentStatus === 'paid' || paymentStatus === 'confirmed') {
+      return {
+        bgColor: '#d1fae5',
+        borderColor: '#10b981',
+        textColor: '#065f46',
+        icon: '✅',
+        title: 'Payment Confirmed',
+      };
+    } else if (paymentStatus === 'pending') {
+      return {
+        bgColor: '#fef3c7',
+        borderColor: '#f59e0b',
+        textColor: '#92400e',
+        icon: '⏳',
+        title: 'Payment Pending',
+      };
+    } else {
+      return {
+        bgColor: '#d1fae5',
+        borderColor: '#10b981',
+        textColor: '#065f46',
+        icon: '✅',
+        title: 'Payment Confirmed',
+      };
+    }
+  };
+
+  const statusStyle = getStatusStyle();
+
+  // Format guest information
+  const formatGuestInfo = () => {
+    const adults = bookingDetails.guestCount || 1;
+    const children = bookingDetails.children || 0;
+    const infants = bookingDetails.infants || 0;
+
+    let guestText = `${adults} ${adults === 1 ? 'adult' : 'adults'}`;
+
+    if (children > 0) {
+      guestText += `, ${children} ${children === 1 ? 'child' : 'children'}`;
+    }
+
+    if (infants > 0) {
+      guestText += `, ${infants} ${infants === 1 ? 'infant' : 'infants'}`;
+    }
+
+    return guestText;
+  };
 
   const mailOptions = {
-    from: `"OpenSpace" <${VERIFIED_SENDER}>`,
+    from: `"OpenSpace Philippines" <${VERIFIED_SENDER}>`,
     to,
-    subject: 'Your OpenSpace Booking Receipt',
+    subject: `🧾 Your OpenSpace Booking Receipt - ${referenceNumber}`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #333;">OpenSpace Booking Receipt</h2>
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OpenSpace Booking Receipt</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9fafb;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 40px 30px; text-align: center;">
+            <div style="background-color: rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);">
+              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                🏢 OpenSpace Philippines
+              </h1>
+              <p style="color: rgba(255, 255, 255, 0.9); margin: 8px 0 0 0; font-size: 16px;">
+                Your Space, Your Way
+              </p>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div style="background-color: ${
+            statusStyle.bgColor
+          }; border-left: 4px solid ${
+      statusStyle.borderColor
+    }; padding: 20px 30px; margin: 0;">
+            <div style="display: flex; align-items: center;">
+              <span style="font-size: 24px; margin-right: 12px;">${
+                statusStyle.icon
+              }</span>
+              <div>
+                <h2 style="color: ${
+                  statusStyle.textColor
+                }; margin: 0; font-size: 20px; font-weight: 700;">
+                  ${statusStyle.title}
+                </h2>
+                <p style="color: ${
+                  statusStyle.textColor
+                }; margin: 4px 0 0 0; font-size: 14px; opacity: 0.8;">
+                  Reference: <strong>${referenceNumber}</strong> • ${date} at ${time}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Content -->
+          <div style="padding: 30px;">
+            
+            <!-- Booking Information -->
+            <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #e2e8f0;">
+              <h3 style="color: #1e293b; margin: 0 0 16px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">🏠</span> Booking Details
+              </h3>
+              
+              <div style="margin-bottom: 16px;">
+                <h4 style="color: #3b82f6; margin: 0 0 4px 0; font-size: 16px; font-weight: 600;">
+                  ${bookingDetails.propertyName || bookingDetails.roomName}
+                </h4>
+                <p style="color: #64748b; margin: 0; font-size: 14px;">
+                  📍 ${bookingDetails.location}
+                </p>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
+                <div>
+                  <p style="color: #64748b; margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-in</p>
+                  <p style="color: #1e293b; margin: 0; font-weight: 600;">
+                    📅 ${bookingDetails.checkInDate}<br>
+                    <span style="font-size: 14px; color: #64748b;">🕒 ${
+                      bookingDetails.checkInTime
+                    }</span>
+                  </p>
+                </div>
+                <div>
+                  <p style="color: #64748b; margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Check-out</p>
+                  <p style="color: #1e293b; margin: 0; font-weight: 600;">
+                    📅 ${bookingDetails.checkOutDate}<br>
+                    <span style="font-size: 14px; color: #64748b;">🕒 ${
+                      bookingDetails.checkOutTime
+                    }</span>
+                  </p>
+                </div>
+              </div>
+
+              <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <p style="color: #64748b; margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Guests</p>
+                    <p style="color: #1e293b; margin: 0; font-weight: 600;">👥 ${formatGuestInfo()}</p>
+                  </div>
+                  <div style="text-align: right;">
+                    <p style="color: #64748b; margin: 0 0 4px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Method</p>
+                    <p style="color: #1e293b; margin: 0; font-weight: 600;">
+                      ${
+                        paymentMethod === 'property'
+                          ? '💰 Pay at Property'
+                          : paymentMethod === 'card'
+                          ? '💳 Credit Card'
+                          : paymentMethod === 'gcash'
+                          ? '📱 GCash'
+                          : paymentMethod === 'maya'
+                          ? '📱 Maya'
+                          : paymentMethod
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Price Breakdown -->
+            <div style="background-color: #ffffff; border-radius: 12px; padding: 24px; margin-bottom: 24px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+              <h3 style="color: #1e293b; margin: 0 0 20px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 8px;">💰</span> Price Breakdown
+              </h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tbody>
+                  ${priceBreakdownHtml}
+                  <tr style="border-top: 2px solid #3b82f6;">
+                    <td style="padding: 16px 0 0 0; text-align: left; font-size: 18px; font-weight: 700; color: #1e293b;">
+                      Total Amount
+                    </td>
+                    <td style="padding: 16px 0 0 0; text-align: right; font-size: 20px; font-weight: 700; color: #3b82f6;">
+                      ${formatPrice(bookingDetails.totalPrice)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            ${
+              paymentMethod === 'property'
+                ? `
+            <!-- Payment Instructions -->
+            <div style="background-color: #fef3c7; border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid #f59e0b;">
+              <h4 style="color: #92400e; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
+                💡 Payment Instructions
+              </h4>
+              <ul style="color: #92400e; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.6;">
+                <li>Your booking is pending host approval</li>
+                <li>Payment of <strong>${formatPrice(
+                  bookingDetails.totalPrice
+                )}</strong> is due upon arrival</li>
+                <li>Please bring exact change or a payment card</li>
+                <li>You'll receive confirmation once the host approves your booking</li>
+              </ul>
+            </div>
+            `
+                : `
+            <!-- Payment Confirmation -->
+            <div style="background-color: #d1fae5; border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid #10b981;">
+              <h4 style="color: #065f46; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+                ✅ Payment Confirmed
+              </h4>
+              <p style="color: #065f46; margin: 0; font-size: 14px;">
+                Your payment of <strong>${formatPrice(
+                  bookingDetails.totalPrice
+                )}</strong> has been successfully processed. Your booking is confirmed!
+              </p>
+            </div>
+            `
+            }
+
+            <!-- Action Button -->
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${bookingUrl}" 
+                 style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
+                        color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; 
+                        font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+                        transition: all 0.2s ease;">
+                📱 View Booking Details
+              </a>
+            </div>
+
+            <!-- Important Notes -->
+            <div style="background-color: #f1f5f9; border-radius: 8px; padding: 16px; margin-top: 24px;">
+              <h4 style="color: #475569; margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">
+                📋 Important Notes:
+              </h4>
+              <ul style="color: #64748b; margin: 0; padding-left: 16px; font-size: 13px; line-height: 1.5;">
+                <li>Please arrive on time for your check-in</li>
+                <li>Contact your host directly for any special requests</li>
+                <li>Review the house rules before your arrival</li>
+                <li>Keep this receipt for your records</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background-color: #1e293b; padding: 24px 30px; text-align: center;">
+            <p style="color: #94a3b8; margin: 0 0 8px 0; font-size: 14px;">
+              Thank you for choosing OpenSpace Philippines!
+            </p>
+            <p style="color: #64748b; margin: 0; font-size: 12px;">
+              This is an automated receipt. Please do not reply to this email.
+            </p>
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #334155;">
+              <p style="color: #64748b; margin: 0; font-size: 11px;">
+                © ${new Date().getFullYear()} OpenSpace Philippines. All rights reserved.
+              </p>
+            </div>
+          </div>
+
         </div>
-        
-        <div style="background-color: ${
-          paymentMethod === 'property' ? '#fff8e1' : '#f0f8ff'
-        }; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-          <h3 style="margin-top: 0;">${
-            paymentMethod === 'property'
-              ? 'Pending Host Approval'
-              : 'Payment Confirmed'
-          }</h3>
-          <p><strong>Reference Number:</strong> ${referenceNumber}</p>
-          <p><strong>Date:</strong> ${date} at ${time}</p>
-          <p><strong>Payment Method:</strong> ${
-            paymentMethod === 'property'
-              ? 'Pay at Property'
-              : paymentMethod === 'card'
-              ? 'Credit Card'
-              : paymentMethod
-          }</p>
-          <p><strong>Status:</strong> ${paymentStatus}</p>
-        </div>
-        
-        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px;">Booking Details</h3>
-        <div style="margin-bottom: 20px;">
-          <p><strong>Property:</strong> ${
-            bookingDetails.propertyName || 'Space'
-          }</p>
-          <p><strong>Check-in:</strong> ${bookingDetails.checkInDate} at ${
-      bookingDetails.checkInTime
-    }</p>
-          <p><strong>Check-out:</strong> ${bookingDetails.checkOutDate} at ${
-      bookingDetails.checkOutTime
-    }</p>
-          <p><strong>Guests:</strong> ${bookingDetails.guestCount || 1}</p>
-        </div>
-        
-        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px;">Price Details</h3>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-          <tbody>
-            ${priceBreakdownHtml}
-            <tr style="font-weight: bold;">
-              <td style="padding: 8px; text-align: left;">Total</td>
-              <td style="padding: 8px; text-align: right;">${formatPrice(
-                bookingDetails.totalPrice || 0
-              )}</td>
-            </tr>
-          </tbody>
-        </table>
-        
-        <div style="text-align: center; margin-top: 30px;">
-          <a href="${bookingUrl}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">View Booking</a>
-        </div>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777; text-align: center;">
-          <p>This is an automated receipt. Please do not reply to this email.</p>
-          <p>© ${new Date().getFullYear()} OpenSpace. All rights reserved.</p>
-        </div>
-      </div>
+      </body>
+      </html>
     `,
   };
 

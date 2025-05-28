@@ -125,6 +125,12 @@ export const getHostRemittances = async (
       .skip(skip)
       .limit(Number(limit));
 
+    // Filter out remittances with missing booking or room data
+    const validRemittances = remittances.filter((remittance) => {
+      const booking = remittance.booking as any;
+      return booking && booking.room && booking.room.title;
+    });
+
     const total = await PlatformFeeRemittance.countDocuments(query);
 
     // Calculate summary
@@ -158,7 +164,7 @@ export const getHostRemittances = async (
     res.status(200).json({
       success: true,
       data: {
-        remittances,
+        remittances: validRemittances,
         pagination: {
           current: Number(page),
           pages: Math.ceil(total / Number(limit)),
@@ -335,6 +341,12 @@ export const getAllPlatformFeeRemittances = async (
       .skip(skip)
       .limit(Number(limit));
 
+    // Filter out remittances with missing booking or room data
+    const validRemittances = remittances.filter((remittance) => {
+      const booking = remittance.booking as any;
+      return booking && booking.room && booking.room.title;
+    });
+
     const total = await PlatformFeeRemittance.countDocuments(query);
 
     // Calculate summary statistics
@@ -368,7 +380,7 @@ export const getAllPlatformFeeRemittances = async (
     res.status(200).json({
       success: true,
       data: {
-        remittances,
+        remittances: validRemittances,
         pagination: {
           current: Number(page),
           pages: Math.ceil(total / Number(limit)),

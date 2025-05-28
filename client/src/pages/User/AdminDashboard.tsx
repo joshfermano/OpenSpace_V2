@@ -99,16 +99,19 @@ const AdminDashboard = () => {
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
+    loading: false,
   });
   const [verificationsPagination, setVerificationsPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
+    loading: false,
   });
   const [roomsPagination, setRoomsPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
+    loading: false,
   });
 
   // Dashboard summary
@@ -195,6 +198,7 @@ const AdminDashboard = () => {
           currentPage: usersResponse.currentPage || page,
           totalPages: usersResponse.totalPages || 1,
           totalCount: usersResponse.count || formattedUsers.length,
+          loading: false,
         });
         console.log(
           'Users loaded:',
@@ -211,7 +215,12 @@ const AdminDashboard = () => {
   const fetchVerifications = async (page = 1) => {
     try {
       console.log('Fetching verifications for page:', page);
-      const verificationsResponse = await adminApi.getPendingIdVerifications();
+      setVerificationsPagination((prev) => ({ ...prev, loading: true }));
+
+      const verificationsResponse = await adminApi.getPendingIdVerifications(
+        page,
+        10
+      );
       if (verificationsResponse.success) {
         const formattedVerifications = verificationsResponse.data
           .filter((verification: any) => verification.role !== 'admin')
@@ -233,51 +242,36 @@ const AdminDashboard = () => {
 
         setVerifications(formattedVerifications);
         setFilteredVerifications(formattedVerifications);
-        // Note: getPendingIdVerifications doesn't support pagination yet, so we'll use simple pagination
-        const itemsPerPage = 10;
-        const totalPages = Math.ceil(
-          formattedVerifications.length / itemsPerPage
-        );
-        const startIndex = (page - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const paginatedData = formattedVerifications.slice(
-          startIndex,
-          endIndex
-        );
-
-        setFilteredVerifications(paginatedData);
         setVerificationsPagination({
-          currentPage: page,
-          totalPages: totalPages,
-          totalCount: formattedVerifications.length,
+          currentPage: verificationsResponse.currentPage || page,
+          totalPages: verificationsResponse.totalPages || 1,
+          totalCount:
+            verificationsResponse.totalCount || formattedVerifications.length,
+          loading: false,
         });
         console.log('Verifications loaded:', formattedVerifications.length);
       }
     } catch (error) {
       console.error('Error fetching verifications:', error);
+      setVerificationsPagination((prev) => ({ ...prev, loading: false }));
     }
   };
 
   const fetchRooms = async (page = 1) => {
     try {
       console.log('Fetching rooms for page:', page);
-      const response = await adminApi.getPendingRoomApprovals();
+      setRoomsPagination((prev) => ({ ...prev, loading: true }));
+
+      const response = await adminApi.getPendingRoomApprovals(page, 10);
       if (response.success) {
         const roomsData = response.data || [];
         setRooms(roomsData);
-
-        // Simple pagination for rooms since API might not support it yet
-        const itemsPerPage = 10;
-        const totalPages = Math.ceil(roomsData.length / itemsPerPage);
-        const startIndex = (page - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const paginatedData = roomsData.slice(startIndex, endIndex);
-
-        setFilteredRooms(paginatedData);
+        setFilteredRooms(roomsData);
         setRoomsPagination({
-          currentPage: page,
-          totalPages: totalPages,
-          totalCount: roomsData.length,
+          currentPage: response.currentPage || page,
+          totalPages: response.totalPages || 1,
+          totalCount: response.totalCount || roomsData.length,
+          loading: false,
         });
         console.log('Rooms loaded:', roomsData.length);
       } else {
@@ -285,9 +279,11 @@ const AdminDashboard = () => {
           'Failed to fetch pending room approvals:',
           response.message
         );
+        setRoomsPagination((prev) => ({ ...prev, loading: false }));
       }
     } catch (error) {
       console.error('Error fetching pending room approvals:', error);
+      setRoomsPagination((prev) => ({ ...prev, loading: false }));
     }
   };
 
@@ -647,12 +643,12 @@ const AdminDashboard = () => {
                   onApproveRoom={handleApproveRoom}
                   onRejectRoom={handleRejectRoom}
                   onImageError={handleImageError}
+                  currentPage={roomsPagination.currentPage}
+                  totalPages={roomsPagination.totalPages}
+                  totalCount={roomsPagination.totalCount}
+                  onPageChange={handleRoomsPageChange}
+                  loading={roomsPagination.loading}
                 />
-                {renderPagination(
-                  roomsPagination.currentPage,
-                  roomsPagination.totalPages,
-                  handleRoomsPageChange
-                )}
               </>
             )}{' '}
             {activeTab === 'verifications' && (
@@ -677,12 +673,12 @@ const AdminDashboard = () => {
                     })
                   }
                   onImageError={handleImageError}
+                  currentPage={verificationsPagination.currentPage}
+                  totalPages={verificationsPagination.totalPages}
+                  totalCount={verificationsPagination.totalCount}
+                  onPageChange={handleVerificationsPageChange}
+                  loading={verificationsPagination.loading}
                 />
-                {renderPagination(
-                  verificationsPagination.currentPage,
-                  verificationsPagination.totalPages,
-                  handleVerificationsPageChange
-                )}
               </>
             )}{' '}
             {activeTab === 'users' && (

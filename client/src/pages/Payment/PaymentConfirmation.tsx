@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   FiCheckCircle,
@@ -11,14 +11,18 @@ import Receipt from '../../components/Receipt/Receipt';
 import logo_black from '../../assets/logo_black.jpg';
 import { bookingApi } from '../../services/bookingApi';
 import { toast } from 'react-hot-toast';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const PaymentConfirmation = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const receiptRef = useRef<HTMLDivElement>(null);
   const [confirmation, setConfirmation] = useState<any>(null);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [showEmailInput, setShowEmailInput] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     if (location.state?.bookingDetails && location.state?.paymentMethod) {
@@ -75,9 +79,447 @@ const PaymentConfirmation = () => {
     }
   };
 
-  const handleDownloadPDF = () => {
-    if (document.querySelector('.download-receipt-btn')) {
-      (document.querySelector('.download-receipt-btn') as HTMLElement).click();
+  const handleDownloadPDF = async () => {
+    if (!receiptRef.current || !confirmation) {
+      toast.error('Receipt not ready for download');
+      return;
+    }
+
+    setIsDownloading(true);
+
+    try {
+      // Create a temporary clone of the receipt with clean styles
+      const originalElement = receiptRef.current;
+      const clonedElement = originalElement.cloneNode(true) as HTMLElement;
+
+      // Apply clean styles to avoid oklch and other modern CSS issues
+      clonedElement.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        background: white;
+        color: black;
+        font-family: Arial, sans-serif;
+        width: ${originalElement.offsetWidth}px;
+        padding: 20px;
+        box-sizing: border-box;
+      `;
+
+      // Remove any problematic classes and apply simple styles
+      const allElements = clonedElement.querySelectorAll('*');
+      allElements.forEach((el: any) => {
+        // Remove all classes that might contain oklch colors
+        el.className = '';
+
+        // Apply basic styling
+        if (el.tagName === 'DIV') {
+          el.style.backgroundColor = 'white';
+          el.style.color = 'black';
+        }
+
+        // Fix any text colors
+        const computedStyle = window.getComputedStyle(
+          originalElement.querySelector(
+            `[data-receipt-id="${el.dataset?.receiptId || ''}"]`
+          ) || el
+        );
+        if (computedStyle.color && !computedStyle.color.includes('oklch')) {
+          el.style.color = computedStyle.color.includes('rgb')
+            ? computedStyle.color
+            : 'black';
+        } else {
+          el.style.color = 'black';
+        }
+      });
+
+      // Append to body temporarily
+      document.body.appendChild(clonedElement);
+
+      // Create canvas from the cleaned element
+      const canvas = await html2canvas(clonedElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        removeContainer: true,
+        foreignObjectRendering: false,
+        ignoreElements: (element) => {
+          // Ignore elements that might cause issues
+          const computedStyle = window.getComputedStyle(element);
+          return (
+            computedStyle.getPropertyValue('color').includes('oklch') ||
+            computedStyle.getPropertyValue('background-color').includes('oklch')
+          );
+        },
+      });
+
+      // Remove the temporary element
+      document.body.removeChild(clonedElement);
+
+      // Calculate dimensions for A4
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let position = 0;
+
+      // Add the image to PDF
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add new pages if content is longer than one page
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Download the PDF
+      const fileName = `OpenSpace_Receipt_${confirmation.referenceNumber}.pdf`;
+      pdf.save(fileName);
+
+      toast.success('Receipt downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+
+      // Fallback: try a simpler approach
+      try {
+        await handleSimplePDFDownload();
+      } catch (fallbackError) {
+        console.error('Fallback PDF generation also failed:', fallbackError);
+        toast.error(
+          'Failed to download receipt. Please try again or contact support.'
+        );
+      }
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Fallback method with professional styling
+  const handleSimplePDFDownload = async () => {
+    if (!receiptRef.current || !confirmation) {
+      throw new Error('Receipt not ready');
+    }
+
+    // Create a professional HTML structure for PDF
+    const professionalHTML = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; background: white; color: #333; width: 800px; margin: 0 auto; box-sizing: border-box;">
+        
+        <!-- Header with branding -->
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 40px 40px 30px 40px; text-align: center; margin-bottom: 0;">
+          <div style="background: rgba(255, 255, 255, 0.1); padding: 25px; border-radius: 15px; backdrop-filter: blur(10px);">
+            <h1 style="margin: 0; font-size: 36px; font-weight: 700; letter-spacing: -1px;">🏢 OpenSpace Philippines</h1>
+            <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9;">Your Space, Your Way</p>
+          </div>
+        </div>
+
+        <!-- Status Banner -->
+        <div style="background: ${
+          confirmation.paymentMethod === 'property' ? '#fef3c7' : '#d1fae5'
+        }; border-left: 6px solid ${
+      confirmation.paymentMethod === 'property' ? '#f59e0b' : '#10b981'
+    }; padding: 25px 40px; margin: 0;">
+          <div style="display: flex; align-items: center;">
+            <span style="font-size: 28px; margin-right: 15px;">${
+              confirmation.paymentMethod === 'property' ? '⏳' : '✅'
+            }</span>
+            <div>
+              <h2 style="color: ${
+                confirmation.paymentMethod === 'property'
+                  ? '#92400e'
+                  : '#065f46'
+              }; margin: 0; font-size: 24px; font-weight: 700;">
+                ${
+                  confirmation.paymentMethod === 'property'
+                    ? 'Pending Host Approval'
+                    : 'Payment Confirmed'
+                }
+              </h2>
+              <p style="color: ${
+                confirmation.paymentMethod === 'property'
+                  ? '#92400e'
+                  : '#065f46'
+              }; margin: 6px 0 0 0; font-size: 14px; opacity: 0.8;">
+                Reference: <strong>${confirmation.referenceNumber}</strong> • ${
+      confirmation.date
+    } at ${confirmation.time}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 40px;">
+          
+          <!-- Booking Information Card -->
+          <div style="background: #f8fafc; border-radius: 15px; padding: 30px; margin-bottom: 30px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+            <h3 style="color: #1e293b; margin: 0 0 20px 0; font-size: 22px; font-weight: 600; display: flex; align-items: center;">
+              <span style="margin-right: 10px; font-size: 24px;">🏠</span> Booking Details
+            </h3>
+            
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #3b82f6; margin: 0 0 8px 0; font-size: 20px; font-weight: 600;">
+                ${confirmation.bookingDetails.roomName}
+              </h4>
+              <p style="color: #64748b; margin: 0; font-size: 16px; display: flex; align-items: center;">
+                <span style="margin-right: 6px;">📍</span> ${
+                  confirmation.bookingDetails.location
+                }
+              </p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 25px;">
+              <div style="background: white; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Check-in</p>
+                <p style="color: #1e293b; margin: 0; font-weight: 600; font-size: 16px;">
+                  📅 ${confirmation.bookingDetails.checkInDate}<br>
+                  <span style="font-size: 14px; color: #64748b; margin-top: 4px; display: inline-block;">🕒 ${
+                    confirmation.bookingDetails.checkInTime
+                  }</span>
+                </p>
+              </div>
+              <div style="background: white; padding: 20px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Check-out</p>
+                <p style="color: #1e293b; margin: 0; font-weight: 600; font-size: 16px;">
+                  📅 ${confirmation.bookingDetails.checkOutDate}<br>
+                  <span style="font-size: 14px; color: #64748b; margin-top: 4px; display: inline-block;">🕒 ${
+                    confirmation.bookingDetails.checkOutTime
+                  }</span>
+                </p>
+              </div>
+            </div>
+
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+              <div style="text-align: center;">
+                <p style="color: #64748b; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Duration</p>
+                <p style="color: #1e293b; margin: 0; font-weight: 700; font-size: 18px;">
+                  ${confirmation.bookingDetails.numberOfDays} ${
+      confirmation.bookingDetails.numberOfDays === 1 ? 'Day' : 'Days'
+    }
+                </p>
+              </div>
+              <div style="text-align: center;">
+                <p style="color: #64748b; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Guests</p>
+                <p style="color: #1e293b; margin: 0; font-weight: 700; font-size: 18px;">
+                  👥 ${confirmation.bookingDetails.guestCount || 1} ${
+      (confirmation.bookingDetails.guestCount || 1) === 1 ? 'Person' : 'People'
+    }
+                </p>
+              </div>
+              <div style="text-align: center;">
+                <p style="color: #64748b; margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Payment Method</p>
+                <p style="color: #1e293b; margin: 0; font-weight: 700; font-size: 14px;">
+                  ${
+                    confirmation.paymentMethod === 'property'
+                      ? '💰 Pay at Property'
+                      : confirmation.paymentMethod === 'card'
+                      ? '💳 Credit Card'
+                      : confirmation.paymentMethod === 'gcash'
+                      ? '📱 GCash'
+                      : confirmation.paymentMethod === 'maya'
+                      ? '📱 Maya'
+                      : confirmation.paymentMethod
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Price Breakdown Card -->
+          <div style="background: white; border-radius: 15px; padding: 30px; margin-bottom: 30px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+            <h3 style="color: #1e293b; margin: 0 0 25px 0; font-size: 22px; font-weight: 600; display: flex; align-items: center;">
+              <span style="margin-right: 10px; font-size: 24px;">💰</span> Price Breakdown
+            </h3>
+            
+            <div style="space-y: 15px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b; font-size: 16px;">Base Price (${
+                  confirmation.bookingDetails.numberOfDays
+                } ${
+      confirmation.bookingDetails.numberOfDays === 1 ? 'day' : 'days'
+    })</span>
+                <span style="font-weight: 600; color: #1e293b; font-size: 16px;">₱${confirmation.bookingDetails.subtotal.toLocaleString(
+                  'en-PH',
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}</span>
+              </div>
+              
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b; font-size: 16px;">Service Fee (10%)</span>
+                <span style="font-weight: 600; color: #1e293b; font-size: 16px;">₱${confirmation.bookingDetails.serviceFee.toLocaleString(
+                  'en-PH',
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}</span>
+              </div>
+              
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-top: 3px solid #3b82f6; margin-top: 20px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); margin: 20px -15px -15px -15px; padding: 25px 15px;">
+                <span style="font-size: 20px; font-weight: 700; color: #1e293b;">Total Amount</span>
+                <span style="font-size: 24px; font-weight: 700; color: #3b82f6;">₱${confirmation.bookingDetails.total.toLocaleString(
+                  'en-PH',
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}</span>
+              </div>
+            </div>
+          </div>
+
+          ${
+            confirmation.paymentMethod === 'property'
+              ? `
+          <!-- Payment Instructions -->
+          <div style="background: #fef3c7; border-radius: 15px; padding: 25px; margin-bottom: 30px; border-left: 6px solid #f59e0b;">
+            <h4 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+              <span style="margin-right: 8px;">💡</span> Payment Instructions
+            </h4>
+            <div style="color: #92400e; font-size: 14px; line-height: 1.6;">
+              <div style="display: flex; align-items: start; margin-bottom: 10px;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Your booking is pending host approval</span>
+              </div>
+              <div style="display: flex; align-items: start; margin-bottom: 10px;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Payment of <strong>₱${confirmation.bookingDetails.total.toLocaleString(
+                  'en-PH',
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                )}</strong> is due upon arrival</span>
+              </div>
+              <div style="display: flex; align-items: start; margin-bottom: 10px;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Please bring exact change or a payment card</span>
+              </div>
+              <div style="display: flex; align-items: start;">
+                <span style="margin-right: 8px;">•</span>
+                <span>You'll receive confirmation once the host approves your booking</span>
+              </div>
+            </div>
+          </div>
+          `
+              : `
+          <!-- Payment Confirmation -->
+          <div style="background: #d1fae5; border-radius: 15px; padding: 25px; margin-bottom: 30px; border-left: 6px solid #10b981;">
+            <h4 style="color: #065f46; margin: 0 0 10px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+              <span style="margin-right: 8px;">✅</span> Payment Confirmed
+            </h4>
+            <p style="color: #065f46; margin: 0; font-size: 14px;">
+              Your payment of <strong>₱${confirmation.bookingDetails.total.toLocaleString(
+                'en-PH',
+                { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+              )}</strong> has been successfully processed. Your booking is confirmed!
+            </p>
+          </div>
+          `
+          }
+
+          <!-- Important Notes -->
+          <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 30px;">
+            <h4 style="color: #475569; margin: 0 0 15px 0; font-size: 16px; font-weight: 600; display: flex; align-items: center;">
+              <span style="margin-right: 8px;">📋</span> Important Notes:
+            </h4>
+            <div style="color: #64748b; font-size: 13px; line-height: 1.6;">
+              <div style="display: flex; align-items: start; margin-bottom: 8px;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Please arrive on time for your check-in</span>
+              </div>
+              <div style="display: flex; align-items: start; margin-bottom: 8px;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Contact your host directly for any special requests</span>
+              </div>
+              <div style="display: flex; align-items: start; margin-bottom: 8px;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Review the house rules before your arrival</span>
+              </div>
+              <div style="display: flex; align-items: start;">
+                <span style="margin-right: 8px;">•</span>
+                <span>Keep this receipt for your records</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #1e293b; padding: 30px 40px; text-align: center; color: white;">
+          <p style="color: #94a3b8; margin: 0 0 10px 0; font-size: 16px; font-weight: 500;">
+            Thank you for choosing OpenSpace Philippines!
+          </p>
+          <p style="color: #64748b; margin: 0 0 15px 0; font-size: 12px;">
+            For support, contact us at support@openspace.com | Call: +63 (02) 123-4567
+          </p>
+          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #334155;">
+            <p style="color: #64748b; margin: 0; font-size: 11px;">
+              © ${new Date().getFullYear()} OpenSpace Philippines. All rights reserved. | This is an electronic receipt.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    `;
+
+    // Create a temporary div with better styling
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = professionalHTML;
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.backgroundColor = 'white';
+    tempDiv.style.fontFamily =
+      "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+
+    document.body.appendChild(tempDiv);
+
+    try {
+      const canvas = await html2canvas(tempDiv, {
+        scale: 3, // Higher quality for professional look
+        backgroundColor: '#ffffff',
+        logging: false,
+        removeContainer: true,
+        useCORS: true,
+        allowTaint: true,
+        width: 800,
+        height: tempDiv.scrollHeight,
+      });
+
+      document.body.removeChild(tempDiv);
+
+      // Create PDF with better margins and quality
+      const imgWidth = 190; // Slightly smaller to allow margins
+      const pageHeight = 277; // A4 height with margins
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      // Add margins
+      const marginX = 10;
+      const marginY = 10;
+
+      let position = marginY;
+      let heightLeft = imgHeight;
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Handle multiple pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + marginY;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', marginX, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const fileName = `OpenSpace_Receipt_${confirmation.referenceNumber}_${
+        new Date().toISOString().split('T')[0]
+      }.pdf`;
+      pdf.save(fileName);
+
+      toast.success('Professional receipt downloaded successfully!');
+    } catch (error) {
+      document.body.removeChild(tempDiv);
+      throw error;
     }
   };
 
@@ -216,8 +658,10 @@ const PaymentConfirmation = () => {
             <div className="flex space-x-2">
               <button
                 onClick={handleDownloadPDF}
-                className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                <FiDownload className="mr-1" /> Download
+                disabled={isDownloading}
+                className="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 disabled:cursor-not-allowed">
+                <FiDownload className="mr-1" />
+                {isDownloading ? 'Downloading...' : 'Download'}
               </button>
               <button
                 onClick={() => setShowEmailInput(!showEmailInput)}
@@ -250,7 +694,7 @@ const PaymentConfirmation = () => {
             </div>
           )}
 
-          <div className="p-4">
+          <div className="p-4" ref={receiptRef}>
             <Receipt
               referenceNumber={confirmation.referenceNumber}
               bookingDetails={confirmation.bookingDetails}

@@ -365,6 +365,33 @@ export const createBooking = async (
     const cancellationDeadline = new Date(checkInDate);
     cancellationDeadline.setHours(cancellationDeadline.getHours() - 24);
 
+    // Validate guest count against room capacity
+    const totalGuests = guests.adults + guests.children;
+    if (room.capacity.maxGuests && totalGuests > room.capacity.maxGuests) {
+      res.status(400).json({
+        success: false,
+        message: `This property can accommodate a maximum of ${room.capacity.maxGuests} guests. You have selected ${totalGuests} guests (${guests.adults} adults + ${guests.children} children). Please reduce the number of guests.`,
+      });
+      return;
+    }
+
+    // Validate individual guest counts
+    if (guests.adults < 1) {
+      res.status(400).json({
+        success: false,
+        message: 'At least one adult is required for the booking',
+      });
+      return;
+    }
+
+    if (guests.children < 0 || guests.infants < 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Guest counts cannot be negative',
+      });
+      return;
+    }
+
     const bookingData = {
       room: roomId,
       user: userId,
@@ -635,6 +662,108 @@ export const processPayment = async (
 
     if (booking.paymentStatus === 'paid') {
       await createEarningRecord(booking);
+
+      // Automatically send receipt email for successful payments
+      try {
+        // Populate booking with room and user data for receipt
+        const populatedBooking = await Booking.findById(booking._id)
+          .populate('room', 'title location')
+          .populate('user', 'firstName lastName email');
+
+        if (populatedBooking) {
+          const user = populatedBooking.user as any;
+          const room = populatedBooking.room as any;
+
+          // Format dates
+          const checkInDate = new Date(populatedBooking.checkIn);
+          const checkOutDate = new Date(populatedBooking.checkOut);
+
+          // Calculate number of days
+          const numberOfDays = Math.ceil(
+            (checkOutDate.getTime() - checkInDate.getTime()) /
+              (1000 * 60 * 60 * 24)
+          );
+
+          // Generate reference number
+          const receiptReferenceNumber = `REF-${(
+            populatedBooking._id as mongoose.Types.ObjectId
+          )
+            .toString()
+            .slice(-6)
+            .toUpperCase()}`;
+
+          // Use actual booking times or defaults
+          const receiptCheckInTime = populatedBooking.checkInTime
+            ? convertTo12HourFormat(populatedBooking.checkInTime)
+            : '3:00 PM';
+          const receiptCheckOutTime = populatedBooking.checkOutTime
+            ? convertTo12HourFormat(populatedBooking.checkOutTime)
+            : '12:00 PM';
+
+          const receiptData = {
+            referenceNumber: receiptReferenceNumber,
+            bookingDetails: {
+              bookingId: populatedBooking._id,
+              propertyName: room.title,
+              roomName: room.title,
+              location: room.location || 'Philippines',
+              checkInDate: checkInDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              }),
+              checkOutDate: checkOutDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              }),
+              checkInTime: receiptCheckInTime,
+              checkOutTime: receiptCheckOutTime,
+              guestCount:
+                typeof populatedBooking.guests === 'object' &&
+                populatedBooking.guests?.adults
+                  ? populatedBooking.guests.adults
+                  : typeof populatedBooking.guests === 'number'
+                  ? populatedBooking.guests
+                  : 1,
+              children: populatedBooking.guests?.children || 0,
+              infants: populatedBooking.guests?.infants || 0,
+              guestName: `${user.firstName} ${user.lastName}`,
+              totalPrice: populatedBooking.totalPrice,
+              subtotal:
+                populatedBooking.priceBreakdown?.basePrice ||
+                populatedBooking.totalPrice * 0.9,
+              serviceFee:
+                populatedBooking.priceBreakdown?.serviceFee ||
+                populatedBooking.totalPrice * 0.1,
+              priceBreakdown: populatedBooking.priceBreakdown,
+              numberOfDays,
+              nightsCount: numberOfDays,
+              specialRequests: populatedBooking.specialRequests,
+            },
+            paymentMethod: populatedBooking.paymentMethod,
+            paymentStatus: populatedBooking.paymentStatus,
+            date: new Date().toLocaleDateString('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+            time: new Date().toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+          };
+
+          // Send receipt email
+          await sendBookingReceiptEmail(user.email, receiptData);
+          console.log(
+            `Automatic receipt email sent to ${user.email} for booking ${booking._id}`
+          );
+        }
+      } catch (emailError) {
+        console.error('Error sending automatic receipt email:', emailError);
+        // Don't fail the payment if email fails
+      }
     }
 
     res.status(200).json({
@@ -1511,7 +1640,7 @@ export const sendReceiptEmail = async (
     const userId = req.user.id;
     const { recipientEmail, receiptDetails } = req.body;
 
-    // Check if booking exists
+    // Check if booking exists with full population
     const booking = await Booking.findById(bookingId)
       .populate('room', 'title images location')
       .populate('user', 'firstName lastName email');
@@ -1534,6 +1663,7 @@ export const sendReceiptEmail = async (
     }
 
     const user = booking.user as any; // Cast to any to access populated fields
+    const room = booking.room as any; // Cast to any to access populated fields
     const email = recipientEmail || user.email;
 
     let receipt;
@@ -1544,21 +1674,34 @@ export const sendReceiptEmail = async (
       const checkInDate = new Date(booking.checkIn);
       const checkOutDate = new Date(booking.checkOut);
 
-      // Calculate number of nights
+      // Calculate number of nights/days
       const nightsCount = Math.ceil(
         (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      const user = booking.user as any; // Cast to 'any' to access firstName and lastName
+      // Generate reference number
+      const receiptReferenceNumber = `REF-${(
+        booking._id as mongoose.Types.ObjectId
+      )
+        .toString()
+        .slice(-6)
+        .toUpperCase()}`;
+
+      // Use actual booking times or defaults
+      const receiptCheckInTime = booking.checkInTime
+        ? convertTo12HourFormat(booking.checkInTime)
+        : '3:00 PM';
+      const receiptCheckOutTime = booking.checkOutTime
+        ? convertTo12HourFormat(booking.checkOutTime)
+        : '12:00 PM';
 
       receipt = {
-        referenceNumber: (booking._id as mongoose.Types.ObjectId)
-          .toString()
-          .slice(-8)
-          .toUpperCase(),
+        referenceNumber: receiptReferenceNumber,
         bookingDetails: {
-          bookingId: booking._id as mongoose.Types.ObjectId,
-          propertyName: (booking.room as any).title,
+          bookingId: booking._id,
+          propertyName: room.title,
+          roomName: room.title,
+          location: room.location || 'Philippines',
           checkInDate: checkInDate.toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
@@ -1569,13 +1712,25 @@ export const sendReceiptEmail = async (
             day: 'numeric',
             year: 'numeric',
           }),
-          checkInTime: '3:00 PM', // Default time or from room.checkInTime
-          checkOutTime: '12:00 PM', // Default time or from room.checkOutTime
-          guestCount: booking.guests,
+          checkInTime: receiptCheckInTime,
+          checkOutTime: receiptCheckOutTime,
+          guestCount:
+            typeof booking.guests === 'object' && booking.guests?.adults
+              ? booking.guests.adults
+              : typeof booking.guests === 'number'
+              ? booking.guests
+              : 1,
+          children: booking.guests?.children || 0,
+          infants: booking.guests?.infants || 0,
           guestName: `${user.firstName} ${user.lastName}`,
           totalPrice: booking.totalPrice,
+          subtotal:
+            booking.priceBreakdown?.basePrice || booking.totalPrice * 0.9,
+          serviceFee:
+            booking.priceBreakdown?.serviceFee || booking.totalPrice * 0.1,
           priceBreakdown: booking.priceBreakdown,
           nightsCount,
+          numberOfDays: nightsCount,
           specialRequests: booking.specialRequests,
         },
         paymentMethod: booking.paymentMethod,

@@ -228,9 +228,16 @@ export const adminApi = {
   },
 
   // ID verification management
-  getPendingIdVerifications: async () => {
+  getPendingIdVerifications: async (page = 1, limit = 10) => {
     try {
-      const response = await fetchWithAuth('/api/admin/id-verifications');
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      const response = await fetchWithAuth(
+        `/api/admin/id-verifications?${queryParams.toString()}`
+      );
       const data = await response.json();
       return data;
     } catch (error) {
@@ -268,9 +275,16 @@ export const adminApi = {
     }
   },
 
-  getPendingRoomApprovals: async () => {
+  getPendingRoomApprovals: async (page = 1, limit = 10) => {
     try {
-      const response = await fetchWithAuth('/api/admin/rooms/pending');
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      const response = await fetchWithAuth(
+        `/api/admin/rooms/pending?${queryParams.toString()}`
+      );
 
       console.log('Raw API response:', response);
 

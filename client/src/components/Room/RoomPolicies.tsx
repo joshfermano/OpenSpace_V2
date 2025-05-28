@@ -6,6 +6,32 @@ interface RoomPoliciesProps {
   room: any;
 }
 
+const convertTo12HourFormat = (time: string): string => {
+  // If already in 12-hour format (contains AM/PM), return as is
+  if (time.includes('AM') || time.includes('PM')) {
+    return time;
+  }
+
+  try {
+    // Convert from 24h to 12h format
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours, 10);
+
+    if (hour === 0) {
+      return `12:${minutes} AM`;
+    } else if (hour < 12) {
+      return `${hour}:${minutes} AM`;
+    } else if (hour === 12) {
+      return `12:${minutes} PM`;
+    } else {
+      return `${hour - 12}:${minutes} PM`;
+    }
+  } catch (error) {
+    console.error('Error converting time format:', error);
+    return time; // Return original if conversion fails
+  }
+};
+
 const RoomPolicies = ({ room }: RoomPoliciesProps) => {
   if (!room) return null;
 
@@ -20,11 +46,19 @@ const RoomPolicies = ({ room }: RoomPoliciesProps) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 dark:text-gray-300">
             <div className="flex items-start gap-2">
               <span className="font-medium">Check-in:</span>
-              <span>{room.houseRules?.checkInTime || '2:00 PM'}</span>
+              <span>
+                {convertTo12HourFormat(
+                  room.houseRules?.checkInTime || '2:00 PM'
+                )}
+              </span>
             </div>
             <div className="flex items-start gap-2">
               <span className="font-medium">Check-out:</span>
-              <span>{room.houseRules?.checkOutTime || '12:00 PM'}</span>
+              <span>
+                {convertTo12HourFormat(
+                  room.houseRules?.checkOutTime || '12:00 PM'
+                )}
+              </span>
             </div>
           </div>
         </div>
@@ -70,8 +104,13 @@ const RoomPolicies = ({ room }: RoomPoliciesProps) => {
             <div className="flex items-start gap-2">
               <span className="font-medium">Operating hours:</span>
               <span>
-                {room.houseRules?.checkInTime || '8:00 AM'} -{' '}
-                {room.houseRules?.checkOutTime || '8:00 PM'}
+                {convertTo12HourFormat(
+                  room.houseRules?.checkInTime || '8:00 AM'
+                )}{' '}
+                -{' '}
+                {convertTo12HourFormat(
+                  room.houseRules?.checkOutTime || '8:00 PM'
+                )}
               </span>
             </div>
           </div>
@@ -120,8 +159,13 @@ const RoomPolicies = ({ room }: RoomPoliciesProps) => {
             <div className="flex items-start gap-2">
               <span className="font-medium">Available hours:</span>
               <span>
-                {room.houseRules?.checkInTime || '8:00 AM'} -{' '}
-                {room.houseRules?.checkOutTime || '10:00 PM'}
+                {convertTo12HourFormat(
+                  room.houseRules?.checkInTime || '8:00 AM'
+                )}{' '}
+                -{' '}
+                {convertTo12HourFormat(
+                  room.houseRules?.checkOutTime || '10:00 PM'
+                )}
               </span>
             </div>
           </div>

@@ -313,15 +313,18 @@ const PlatformFeeRemittance = () => {
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {remittances.map((remittance) => (
-                  <div key={remittance._id} className="p-4 sm:p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
-                            {remittance.booking.room.title}
+                  <div
+                    key={remittance._id}
+                    className="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                            {remittance.booking?.room?.title ||
+                              'Room Unavailable'}
                           </h3>
                           <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                               remittance.status
                             )}`}>
                             {getStatusIcon(remittance.status)}
@@ -330,60 +333,46 @@ const PlatformFeeRemittance = () => {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400">
                           <div className="flex items-center gap-1">
-                            <FiCalendar size={14} />
+                            <FiCalendar size={12} />
                             <span>
                               {formatDate(remittance.booking.checkIn)} -{' '}
                               {formatDate(remittance.booking.checkOut)}
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <FiDollarSign size={14} />
-                            <span>
-                              Platform Fee:{' '}
+                            <FiDollarSign size={12} />
+                            <span className="font-medium text-gray-900 dark:text-white">
                               {formatCurrency(remittance.platformFeeAmount)}
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <FiClock size={14} />
+                            <FiClock size={12} />
                             <span>Due: {formatDate(remittance.dueDate)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <FiInfo size={14} />
-                            <span>
-                              Booking Total:{' '}
-                              {formatCurrency(remittance.booking.totalPrice)}
-                            </span>
                           </div>
                         </div>
 
                         {remittance.paymentDetails &&
                           remittance.status === 'paid' && (
-                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                              <p className="text-sm text-green-700 dark:text-green-300">
-                                Paid on{' '}
+                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded text-xs">
+                              <p className="text-green-700 dark:text-green-300">
+                                ✓ Paid on{' '}
                                 {formatDate(
                                   remittance.paymentDetails.paymentDate!
                                 )}{' '}
                                 via {remittance.paymentMethod}
-                                {remittance.paymentDetails.transactionId && (
-                                  <span className="block text-xs mt-1">
-                                    Transaction ID:{' '}
-                                    {remittance.paymentDetails.transactionId}
-                                  </span>
-                                )}
                               </p>
                             </div>
                           )}
                       </div>
 
                       {remittance.status !== 'paid' && (
-                        <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="flex-shrink-0">
                           <button
                             onClick={() => handlePayRemittance(remittance)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center transition-colors">
-                            <FiCreditCard className="mr-2" size={16} />
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center transition-colors text-sm">
+                            <FiCreditCard className="mr-1" size={14} />
                             Pay Now
                           </button>
                         </div>
@@ -397,26 +386,66 @@ const PlatformFeeRemittance = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700">
-                <FiChevronLeft size={16} />
-              </button>
+            <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  Showing{' '}
+                  <span className="font-medium">
+                    {(currentPage - 1) * 10 + 1}
+                  </span>{' '}
+                  to{' '}
+                  <span className="font-medium">
+                    {Math.min(currentPage * 10, remittances.length)}
+                  </span>{' '}
+                  of <span className="font-medium">{remittances.length}</span>{' '}
+                  remittances
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="relative inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    <FiChevronLeft className="h-4 w-4" />
+                    <span className="ml-1 hidden sm:inline">Previous</span>
+                  </button>
 
-              <span className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
-                Page {currentPage} of {totalPages}
-              </span>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
 
-              <button
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700">
-                <FiChevronRight size={16} />
-              </button>
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`relative inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === pageNum
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}>
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    className="relative inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    <span className="mr-1 hidden sm:inline">Next</span>
+                    <FiChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -433,7 +462,8 @@ const PlatformFeeRemittance = () => {
 
               <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  {selectedRemittance.booking.room.title}
+                  {selectedRemittance.booking?.room?.title ||
+                    'Room Unavailable'}
                 </div>
                 <div className="text-lg font-semibold text-gray-900 dark:text-white">
                   {formatCurrency(selectedRemittance.platformFeeAmount)}

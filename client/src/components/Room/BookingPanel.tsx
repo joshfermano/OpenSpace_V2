@@ -788,6 +788,7 @@ const BookingPanel = ({
               room.images && room.images.length > 0 ? room.images[0] : null,
             hostId: room.host._id,
             hostName: `${room.host.firstName} ${room.host.lastName}`,
+            maxGuests: room.capacity?.maxGuests || 10,
           },
         },
       });

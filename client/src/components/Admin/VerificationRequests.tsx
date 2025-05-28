@@ -1,7 +1,13 @@
 import React from 'react';
-import { FiEye, FiCheckCircle, FiXCircle, FiUser } from 'react-icons/fi';
+import {
+  FiEye,
+  FiCheckCircle,
+  FiXCircle,
+  FiUser,
+  FiChevronLeft,
+  FiChevronRight,
+} from 'react-icons/fi';
 
-// Types
 interface VerificationRequest {
   id: string;
   userId: string;
@@ -32,6 +38,11 @@ interface VerificationRequestsProps {
   onApproveRequest: (requestId: string, userId: string) => void;
   onRejectRequest: (requestId: string, userId: string) => void;
   onImageError: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+  loading?: boolean;
 }
 
 const VerificationRequests: React.FC<VerificationRequestsProps> = ({
@@ -41,13 +52,25 @@ const VerificationRequests: React.FC<VerificationRequestsProps> = ({
   onApproveRequest,
   onRejectRequest,
   onImageError,
+  currentPage,
+  totalPages,
+  totalCount,
+  onPageChange,
+  loading,
 }) => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
       {/* Mobile Cards View */}
       <div className="block sm:hidden">
         <div className="p-4 space-y-4">
-          {requests.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Loading verification requests...
+              </p>
+            </div>
+          ) : requests.length > 0 ? (
             requests.map((request) => (
               <div
                 key={request.id}
@@ -198,7 +221,18 @@ const VerificationRequests: React.FC<VerificationRequestsProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {requests.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-4 sm:px-6 py-8 sm:py-10 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Loading verification requests...
+                  </p>
+                </td>
+              </tr>
+            ) : requests.length > 0 ? (
               requests.map((request) => (
                 <tr
                   key={request.id}
@@ -338,6 +372,68 @@ const VerificationRequests: React.FC<VerificationRequestsProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div className="text-sm text-gray-700 dark:text-gray-300">
+              Showing{' '}
+              <span className="font-medium">{(currentPage - 1) * 10 + 1}</span>{' '}
+              to{' '}
+              <span className="font-medium">
+                {Math.min(currentPage * 10, totalCount)}
+              </span>{' '}
+              of <span className="font-medium">{totalCount}</span> requests
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+                className="relative inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <FiChevronLeft className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">Previous</span>
+              </button>
+
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => onPageChange(pageNum)}
+                      className={`relative inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      }`}>
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+                className="relative inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <span className="mr-1 hidden sm:inline">Next</span>
+                <FiChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

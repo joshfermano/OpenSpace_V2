@@ -506,7 +506,7 @@ const HomepageOptimized = () => {
               )}
               <span className="hidden sm:inline">
                 {filter ? 'Close' : 'Filters'}
-              </span>
+                </span>
               {totalActiveFilters > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
                   {totalActiveFilters}
@@ -539,8 +539,8 @@ const HomepageOptimized = () => {
                         Clear
                       </button>
                     )}
-                    <button
-                      onClick={toggleFilter}
+                <button
+                  onClick={toggleFilter}
                       className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
                       <MdClose className="text-lg text-gray-500" />
                     </button>
@@ -578,7 +578,7 @@ const HomepageOptimized = () => {
                         {activeAmenityFilters.length}
                       </span>
                     )}
-                  </button>
+                </button>
                 </div>
               </div>
 
@@ -589,13 +589,13 @@ const HomepageOptimized = () => {
                     <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                       What's your vibe? 🎯
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {Object.entries(CATEGORIES_CONFIG).map(
                         ([category, config]) => {
                           const IconComponent = config.icon;
                           const isActive =
-                            categoryFilters[
-                              category as keyof typeof categoryFilters
+                        categoryFilters[
+                          category as keyof typeof categoryFilters
                             ];
                           return (
                             <button

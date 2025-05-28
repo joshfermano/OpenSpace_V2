@@ -225,12 +225,25 @@ const getPendingIdVerifications = (req, res) => __awaiter(void 0, void 0, void 0
         const admin = ensureAdmin(req, res);
         if (!admin)
             return;
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
         const users = yield User_1.default.find({
             'identificationDocument.verificationStatus': 'pending',
-        }).select('_id firstName lastName email identificationDocument');
+        })
+            .select('_id firstName lastName email identificationDocument profileImage')
+            .skip(skip)
+            .limit(limit)
+            .sort({ 'identificationDocument.uploadDate': 1 }); // Oldest first
+        const total = yield User_1.default.countDocuments({
+            'identificationDocument.verificationStatus': 'pending',
+        });
         res.status(200).json({
             success: true,
             count: users.length,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
             data: users,
         });
     }

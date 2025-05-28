@@ -74,12 +74,41 @@ const PaymentPage = () => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
 
+    let newValue: any = type === 'checkbox' ? checked : value;
+
+    // Handle numeric inputs properly
+    if (name === 'guestCount' || name === 'children' || name === 'infants') {
+      const numValue = parseInt(value) || 0;
+      const maxGuests = bookingDetails.maxGuests;
+
+      // Validation for max guests
+      if (maxGuests && numValue > maxGuests) {
+        return;
+      }
+
+      if (name === 'children') {
+        const totalGuests = formData.guestCount + numValue;
+        if (maxGuests && totalGuests > maxGuests) {
+          return;
+        }
+      }
+
+      if (name === 'guestCount') {
+        const totalGuests = numValue + formData.children;
+        if (maxGuests && totalGuests > maxGuests) {
+          return;
+        }
+      }
+
+      // Set the numeric value instead of string
+      newValue = numValue;
+    }
+
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: newValue,
     });
 
-    // Clear error when field is edited
     if (errors[name]) {
       setErrors({
         ...errors,
@@ -116,20 +145,6 @@ const PaymentPage = () => {
       });
     }
   };
-
-  <input
-    type="text"
-    name="accountNumber"
-    value={formData.accountNumber}
-    onChange={handleMobileNumberChange}
-    placeholder="09XXXXXXXXX"
-    maxLength={11}
-    className={`w-full p-3 border ${
-      errors.accountNumber
-        ? 'border-red-500'
-        : 'border-gray-300 dark:border-gray-600'
-    } rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-colors`}
-  />;
 
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -191,7 +206,7 @@ const PaymentPage = () => {
         break;
     }
 
-    // Validate guest count
+    // Enhanced guest validation
     if (formData.guestCount < 1) {
       newErrors.guestCount = 'At least one adult is required';
     }
@@ -204,10 +219,20 @@ const PaymentPage = () => {
       newErrors.infants = 'Infants count cannot be negative';
     }
 
-    // Check if total guests exceed max guests (if specified)
     const totalGuests = formData.guestCount + formData.children;
-    if (bookingDetails.maxGuests && totalGuests > bookingDetails.maxGuests) {
-      newErrors.guestCount = `Total guests (${totalGuests}) exceeds maximum allowed (${bookingDetails.maxGuests})`;
+    const maxGuests = bookingDetails.maxGuests;
+
+    if (maxGuests && totalGuests > maxGuests) {
+      newErrors.guestCount = `This property can accommodate a maximum of ${maxGuests} guests. You have selected ${totalGuests} guests (${formData.guestCount} adults + ${formData.children} children). Please reduce the number of guests.`;
+    }
+
+    // Additional validation for individual guest types
+    if (maxGuests && formData.guestCount > maxGuests) {
+      newErrors.guestCount = `Maximum ${maxGuests} adults allowed for this property`;
+    }
+
+    if (maxGuests && formData.children > maxGuests) {
+      newErrors.children = `Maximum ${maxGuests} children allowed for this property`;
     }
 
     setErrors(newErrors);
@@ -572,6 +597,12 @@ const PaymentPage = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Number of Adults
+                      {bookingDetails.maxGuests && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                          (Max capacity: {bookingDetails.maxGuests} total
+                          guests)
+                        </span>
+                      )}
                     </label>
                     <input
                       type="number"
@@ -591,11 +622,22 @@ const PaymentPage = () => {
                         {errors.guestCount}
                       </p>
                     )}
+                    {bookingDetails.maxGuests && (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Current total: {formData.guestCount + formData.children}{' '}
+                        of {bookingDetails.maxGuests} guests
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Number of Children
+                      {bookingDetails.maxGuests && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                          (Included in total capacity)
+                        </span>
+                      )}
                     </label>
                     <input
                       type="number"
@@ -605,7 +647,10 @@ const PaymentPage = () => {
                       min="0"
                       max={
                         bookingDetails.maxGuests
-                          ? bookingDetails.maxGuests - formData.guestCount
+                          ? Math.max(
+                              0,
+                              bookingDetails.maxGuests - formData.guestCount
+                            )
                           : 10
                       }
                       className={`w-full p-3 border ${
@@ -624,6 +669,9 @@ const PaymentPage = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Number of Infants
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                        (Under 2 years, don't count toward capacity)
+                      </span>
                     </label>
                     <input
                       type="number"
@@ -875,7 +923,7 @@ const PaymentPage = () => {
                           type="text"
                           name="accountNumber"
                           value={formData.accountNumber}
-                          onChange={handleInputChange}
+                          onChange={handleMobileNumberChange}
                           placeholder="09XXXXXXXXX"
                           maxLength={11}
                           className={`w-full p-3 border ${
