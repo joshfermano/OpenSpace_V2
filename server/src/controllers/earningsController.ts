@@ -265,8 +265,8 @@ export const markBookingCompleted = async (
         try {
           await createPlatformFeeRemittance(
             booking.host.toString(),
-            earnings._id.toString(),
-            booking._id.toString(),
+            String(earnings._id),
+            String(booking._id),
             earnings.platformFee
           );
           console.log(
@@ -310,8 +310,8 @@ export const markBookingCompleted = async (
         try {
           await createPlatformFeeRemittance(
             booking.host.toString(),
-            newEarnings._id.toString(),
-            booking._id.toString(),
+            String(newEarnings._id),
+            String(booking._id),
             newEarnings.platformFee
           );
           console.log(
@@ -1044,7 +1044,7 @@ export const processHostPayout = async (
 
     res.status(200).json({
       success: true,
-      message: `Successfully processed payout for ${updateResult.matchedCount} earnings`,
+      message: `Successfully processed payout for ${updateResult.modifiedCount} earnings`,
       data: {
         host: hostId,
         updated: updateResult.modifiedCount,

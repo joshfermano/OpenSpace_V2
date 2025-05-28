@@ -1175,9 +1175,7 @@ const markPaymentReceived = (req, res) => __awaiter(void 0, void 0, void 0, func
         booking.bookingStatus = 'confirmed';
         booking.paymentDetails = Object.assign(Object.assign({}, booking.paymentDetails), { paymentDate: new Date(), amount: booking.totalPrice, recordedBy: new mongoose_1.default.Types.ObjectId(userId) });
         yield booking.save();
-        // Create earning record for the host
         const earningRecord = yield createEarningRecord(booking);
-        // Create platform fee remittance for "pay at property" bookings
         if (booking.paymentMethod === 'property' && earningRecord) {
             try {
                 yield (0, platformFeeRemittanceController_1.createPlatformFeeRemittance)(booking.host.toString(), earningRecord._id.toString(), booking._id.toString(), earningRecord.platformFee);

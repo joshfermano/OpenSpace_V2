@@ -18,6 +18,7 @@ const Earnings_1 = __importDefault(require("../models/Earnings"));
 const User_1 = __importDefault(require("../models/User"));
 const Booking_1 = __importDefault(require("../models/Booking"));
 const uuid_1 = require("uuid");
+const platformFeeRemittanceController_1 = require("./platformFeeRemittanceController");
 const getHostEarnings = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         if (!req.user) {
@@ -238,10 +239,17 @@ const markBookingCompleted = (req, res) => __awaiter(void 0, void 0, void 0, fun
         });
         if (earnings) {
             if (booking.paymentMethod === 'property') {
-                // For 'pay at property', make the earnings available now
                 earnings.status = 'available';
                 earnings.availableDate = new Date();
                 yield earnings.save();
+                try {
+                    yield (0, platformFeeRemittanceController_1.createPlatformFeeRemittance)(booking.host.toString(), String(earnings._id), String(booking._id), earnings.platformFee);
+                    console.log(`Platform fee remittance created for completed booking ${booking._id}`);
+                }
+                catch (error) {
+                    console.error('Error creating platform fee remittance:', error);
+                    // Don't fail the whole operation if remittance creation fails
+                }
             }
             res.status(200).json({
                 success: true,
@@ -269,6 +277,17 @@ const markBookingCompleted = (req, res) => __awaiter(void 0, void 0, void 0, fun
                 paymentMethod: booking.paymentMethod,
                 availableDate: new Date(),
             });
+            // Create platform fee remittance for pay-at-property bookings
+            if (booking.paymentMethod === 'property') {
+                try {
+                    yield (0, platformFeeRemittanceController_1.createPlatformFeeRemittance)(booking.host.toString(), String(newEarnings._id), String(booking._id), newEarnings.platformFee);
+                    console.log(`Platform fee remittance created for completed booking ${booking._id}`);
+                }
+                catch (error) {
+                    console.error('Error creating platform fee remittance:', error);
+                    // Don't fail the whole operation if remittance creation fails
+                }
+            }
             res.status(200).json({
                 success: true,
                 message: 'Booking marked as completed and earnings created',
@@ -895,7 +914,7 @@ const processHostPayout = (req, res) => __awaiter(void 0, void 0, void 0, functi
         }
         res.status(200).json({
             success: true,
-            message: `Successfully processed payout for ${updateResult.matchedCount} earnings`,
+            message: `Successfully processed payout for ${updateResult.modifiedCount} earnings`,
             data: {
                 host: hostId,
                 updated: updateResult.modifiedCount,
