@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -51,6 +18,8 @@ const Booking_1 = __importDefault(require("../models/Booking"));
 const Room_1 = __importDefault(require("../models/Room"));
 const User_1 = __importDefault(require("../models/User"));
 const Earnings_1 = __importDefault(require("../models/Earnings"));
+const emailService_1 = require("../services/emailService");
+const platformFeeRemittanceController_1 = require("./platformFeeRemittanceController");
 const getAllBookings = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -856,6 +825,7 @@ const getUserBookings = (req, res) => __awaiter(void 0, void 0, void 0, function
         res.status(200).json({
             success: true,
             count: bookings.length,
+            total: total,
             totalPages: Math.ceil(total / limit),
             currentPage: page,
             data: bookings,
@@ -910,6 +880,7 @@ const getHostBookings = (req, res) => __awaiter(void 0, void 0, void 0, function
         res.status(200).json({
             success: true,
             count: bookings.length,
+            total: total,
             totalPages: Math.ceil(total / limit),
             currentPage: page,
             data: bookings,
@@ -1205,7 +1176,17 @@ const markPaymentReceived = (req, res) => __awaiter(void 0, void 0, void 0, func
         booking.paymentDetails = Object.assign(Object.assign({}, booking.paymentDetails), { paymentDate: new Date(), amount: booking.totalPrice, recordedBy: new mongoose_1.default.Types.ObjectId(userId) });
         yield booking.save();
         // Create earning record for the host
-        yield createEarningRecord(booking);
+        const earningRecord = yield createEarningRecord(booking);
+        // Create platform fee remittance for "pay at property" bookings
+        if (booking.paymentMethod === 'property' && earningRecord) {
+            try {
+                yield (0, platformFeeRemittanceController_1.createPlatformFeeRemittance)(booking.host.toString(), earningRecord._id.toString(), booking._id.toString(), earningRecord.platformFee);
+            }
+            catch (error) {
+                console.error('Error creating platform fee remittance:', error);
+                // Don't fail the whole operation if remittance creation fails
+            }
+        }
         res.status(200).json({
             success: true,
             message: 'Payment marked as received successfully',
@@ -1394,10 +1375,8 @@ const sendReceiptEmail = (req, res) => __awaiter(void 0, void 0, void 0, functio
                 }),
             };
         }
-        // Import at the top of the file
-        const { sendBookingReceiptEmail } = yield Promise.resolve().then(() => __importStar(require('../services/emailService')));
         // Send the receipt email
-        yield sendBookingReceiptEmail(email, receipt);
+        yield (0, emailService_1.sendBookingReceiptEmail)(email, receipt);
         res.status(200).json({
             success: true,
             message: `Receipt sent to ${email} successfully`,

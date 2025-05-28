@@ -397,7 +397,7 @@ const CreateRoom = () => {
 
     // Check file size and type
     const validFiles = newFiles.filter((file) => {
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB limit
+      const isValidSize = file.size <= 10 * 1024 * 1024;
       const isValidType = file.type.startsWith('image/');
 
       if (!isValidSize) {
@@ -405,29 +405,42 @@ const CreateRoom = () => {
           ...errors,
           images: 'One or more images exceed the 10MB limit',
         });
-      } else if (!isValidType) {
+        return false;
+      }
+
+      if (!isValidType) {
         setErrors({
           ...errors,
           images: 'Only image files are allowed',
         });
+        return false;
       }
 
-      return isValidSize && isValidType;
+      return true;
     });
 
-    const updatedFiles = [...imageFiles, ...validFiles];
-    setImageFiles(updatedFiles);
+    if (validFiles.length > 0) {
+      // Clear any existing errors first
+      setErrors((prev) => ({ ...prev, images: '' }));
 
-    // Generate preview URLs
-    const newPreviewUrls = validFiles.map((file) => URL.createObjectURL(file));
-    setImagePreviewUrls([...imagePreviewUrls, ...newPreviewUrls]);
+      const updatedFiles = [...imageFiles, ...validFiles];
+      setImageFiles(updatedFiles);
 
-    // Clear error if it exists and we now have images
-    if (errors.images && updatedFiles.length > 0) {
-      setErrors({
-        ...errors,
-        images: '',
+      // Generate preview URLs for new files
+      const newPreviewUrls = validFiles.map((file) => {
+        const url = URL.createObjectURL(file);
+        return url;
       });
+
+      setImagePreviewUrls((prevUrls) => {
+        const updatedUrls = [...prevUrls, ...newPreviewUrls];
+        return updatedUrls;
+      });
+    }
+
+    // Reset the file input to allow selecting the same file again
+    if (e.target) {
+      e.target.value = '';
     }
   };
 
@@ -1097,24 +1110,75 @@ const CreateRoom = () => {
             {/* Image previews */}
             {imagePreviewUrls.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-4">
-                {imagePreviewUrls.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-                      <img
-                        src={url}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                {imagePreviewUrls.map((url, index) => {
+                  return (
+                    <div key={index} className="relative group">
+                      <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                        <img
+                          src={url}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover transition-opacity duration-200 relative z-10"
+                          style={{
+                            display: 'block',
+                            maxWidth: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                          }}
+                          onLoad={(e) => {
+                            // Hide loading placeholder when image loads
+                            const loadingDiv =
+                              e.currentTarget.parentElement?.querySelector(
+                                '.loading-placeholder'
+                              );
+                            if (loadingDiv) {
+                              (loadingDiv as HTMLElement).style.display =
+                                'none';
+                            }
+                          }}
+                          onError={(e) => {
+                            console.error(
+                              `Failed to load image ${index}:`,
+                              url
+                            );
+                            e.currentTarget.style.display = 'none';
+                            // Show error message instead of loading
+                            const loadingDiv =
+                              e.currentTarget.parentElement?.querySelector(
+                                '.loading-placeholder'
+                              );
+                            if (loadingDiv) {
+                              loadingDiv.innerHTML =
+                                '<div class="text-red-400 text-sm">Failed to load</div>';
+                            }
+                          }}
+                        />
+                        {/* Loading placeholder - positioned behind the image */}
+                        <div className="loading-placeholder absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 z-0">
+                          <div className="text-gray-400 dark:text-gray-500 text-sm">
+                            Loading...
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20"
+                        aria-label="Remove image">
+                        <FiTrash2 size={16} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 bg-black/50 text-light p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      aria-label="Remove image">
-                      <FiTrash2 size={16} />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Show message when no images */}
+            {imagePreviewUrls.length === 0 && imageFiles.length === 0 && (
+              <div className="mt-4 text-center text-gray-500 dark:text-gray-400">
+                <p>
+                  No images uploaded yet. Click the upload button above to add
+                  images.
+                </p>
               </div>
             )}
           </div>

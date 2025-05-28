@@ -68,6 +68,7 @@ const reviewRoutes_1 = __importDefault(require("./routes/reviewRoutes"));
 const earningsRoutes_1 = __importDefault(require("./routes/earningsRoutes"));
 const emailVerificationRoutes_1 = __importDefault(require("./routes/emailVerificationRoutes"));
 const adminEarningsRoutes_1 = __importDefault(require("./routes/adminEarningsRoutes"));
+const platformFeeRemittanceRoutes_1 = __importDefault(require("./routes/platformFeeRemittanceRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5000;
 const corsOptions = {
@@ -311,6 +312,7 @@ app.use('/api/reviews', reviewRoutes_1.default);
 app.use('/api/earnings', earningsRoutes_1.default);
 app.use('/api/email-verification', emailVerificationRoutes_1.default);
 app.use('/api/admin/earnings', adminEarningsRoutes_1.default);
+app.use('/api/platform-fee-remittance', platformFeeRemittanceRoutes_1.default);
 if (process.env.NODE_ENV !== 'production' ||
     process.env.ENABLE_SWAGGER === 'true') {
     app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swagger_1.swaggerDocument, {

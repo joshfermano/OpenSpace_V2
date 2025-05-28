@@ -1,6 +1,23 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { CiSearch } from 'react-icons/ci';
-import { MdOutlineFilterList, MdOutlineFilterListOff } from 'react-icons/md';
+import {
+  MdOutlineFilterList,
+  MdClose,
+  MdWifi,
+  MdAir,
+  MdVideocam,
+  MdCoffee,
+  MdLocalParking,
+  MdAccessible,
+  MdOutdoorGrill,
+  MdMic,
+  MdSpeaker,
+  MdRestaurant,
+  MdWc,
+  MdLightbulb,
+  MdDraw,
+} from 'react-icons/md';
+import { FiHome, FiBriefcase, FiCalendar, FiCheck } from 'react-icons/fi';
 import RoomCards from '../../components/Room/RoomCards';
 import { roomApi } from '../../services/roomApi';
 import '../../css/infinite-scroll.css';
@@ -27,6 +44,53 @@ const categoryToType: Record<string, string> = {
   'Room Stay': 'stay',
   'Conference Room': 'conference',
   'Events Place': 'event',
+};
+
+// Modern amenities with icons and categories
+const AMENITIES_CONFIG = {
+  'Wi-Fi': { icon: MdWifi, category: 'tech', color: 'blue' },
+  'Air Conditioning': { icon: MdAir, category: 'comfort', color: 'cyan' },
+  Projector: { icon: MdVideocam, category: 'tech', color: 'blue' },
+  Whiteboard: { icon: MdDraw, category: 'work', color: 'green' },
+  'Coffee/Tea': { icon: MdCoffee, category: 'comfort', color: 'amber' },
+  Microphone: { icon: MdMic, category: 'tech', color: 'red' },
+  'Speaker System': { icon: MdSpeaker, category: 'tech', color: 'indigo' },
+  'Catering Available': {
+    icon: MdRestaurant,
+    category: 'service',
+    color: 'orange',
+  },
+  Restrooms: { icon: MdWc, category: 'basic', color: 'gray' },
+  Parking: { icon: MdLocalParking, category: 'basic', color: 'slate' },
+  'Accessible Entry': {
+    icon: MdAccessible,
+    category: 'basic',
+    color: 'emerald',
+  },
+  'Natural Lighting': {
+    icon: MdLightbulb,
+    category: 'comfort',
+    color: 'yellow',
+  },
+  'Outdoor Space': { icon: MdOutdoorGrill, category: 'comfort', color: 'teal' },
+};
+
+const CATEGORIES_CONFIG = {
+  'Room Stay': {
+    icon: FiHome,
+    color: 'rose',
+    description: 'Cozy stays & accommodations',
+  },
+  'Conference Room': {
+    icon: FiBriefcase,
+    color: 'blue',
+    description: 'Professional meeting spaces',
+  },
+  'Events Place': {
+    icon: FiCalendar,
+    color: 'indigo',
+    description: 'Venues for special occasions',
+  },
 };
 
 // Rate limiting configuration
@@ -89,6 +153,15 @@ const HomepageOptimized = () => {
     'Conference Room': false,
     'Events Place': false,
   });
+  const [amenityFilters, setAmenityFilters] = useState<Record<string, boolean>>(
+    Object.keys(AMENITIES_CONFIG).reduce((acc, amenity) => {
+      acc[amenity] = false;
+      return acc;
+    }, {} as Record<string, boolean>)
+  );
+  const [activeFilterTab, setActiveFilterTab] = useState<
+    'categories' | 'amenities'
+  >('categories');
 
   // Debounce search input with longer delay to reduce API calls
   const debouncedSearch = useDebounce(search, RATE_LIMIT_CONFIG.DEBOUNCE_DELAY);
@@ -105,6 +178,13 @@ const HomepageOptimized = () => {
     () => Object.entries(categoryFilters).filter(([_, isActive]) => isActive),
     [categoryFilters]
   );
+
+  const activeAmenityFilters = useMemo(
+    () => Object.entries(amenityFilters).filter(([_, isActive]) => isActive),
+    [amenityFilters]
+  );
+
+  const totalActiveFilters = activeFilters.length + activeAmenityFilters.length;
 
   // Rate-limited fetch function with comprehensive error handling
   const fetchRooms = useCallback(
@@ -156,6 +236,14 @@ const HomepageOptimized = () => {
         if (activeFilters.length === 1) {
           const backendType = categoryToType[activeFilters[0][0]];
           params.type = backendType;
+        }
+
+        // Add amenity filters to backend
+        if (activeAmenityFilters.length > 0) {
+          const selectedAmenities = activeAmenityFilters.map(
+            ([amenity]) => amenity
+          );
+          params.amenities = selectedAmenities.join(',');
         }
 
         console.log(`Fetching rooms - Page: ${page}, Params:`, params);
@@ -247,7 +335,7 @@ const HomepageOptimized = () => {
         requestInProgress.current = false;
       }
     },
-    [debouncedSearch, activeFilters]
+    [debouncedSearch, activeFilters, activeAmenityFilters]
   );
 
   // Throttled load more function
@@ -284,6 +372,27 @@ const HomepageOptimized = () => {
     }));
   };
 
+  const handleAmenityChange = (amenity: string) => {
+    setAmenityFilters((prev) => ({
+      ...prev,
+      [amenity]: !prev[amenity],
+    }));
+  };
+
+  const clearAllFilters = () => {
+    setCategoryFilters({
+      'Room Stay': false,
+      'Conference Room': false,
+      'Events Place': false,
+    });
+    setAmenityFilters(
+      Object.keys(AMENITIES_CONFIG).reduce((acc, amenity) => {
+        acc[amenity] = false;
+        return acc;
+      }, {} as Record<string, boolean>)
+    );
+  };
+
   const retryFetch = useCallback(() => {
     retryCount.current = 0;
     setError(null);
@@ -311,7 +420,7 @@ const HomepageOptimized = () => {
       }));
       fetchRooms(1, true);
     }
-  }, [debouncedSearch, activeFilters, fetchRooms]);
+  }, [debouncedSearch, activeFilters, activeAmenityFilters, fetchRooms]);
 
   // Setup optimized intersection observer for infinite scroll
   useEffect(() => {
@@ -367,75 +476,256 @@ const HomepageOptimized = () => {
 
       <div className="relative z-10 p-4">
         <header className="max-w-7xl mx-auto">
-          <div className="w-full flex items-center justify-between gap-4">
-            <div className="relative w-full md:w-[60%]">
+          <div className="w-full flex items-center justify-between gap-3">
+            <div className="relative w-full md:w-[70%]">
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full border border-darkBlue p-2 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 dark:bg-gray-800 dark:border-gray-700 placeholder:text-gray-400 dark:placeholder:text-gray-400"
-                placeholder="Search for places, events, conferences, or amenities..."
+                className="w-full border border-gray-200 dark:border-gray-700 p-3 pl-10 rounded-xl 
+                focus:outline-none focus:ring-0 focus:border-blue-400 dark:focus:border-blue-500 
+                dark:bg-gray-800/50 backdrop-blur-sm placeholder:text-gray-400 dark:placeholder:text-gray-500
+                transition-all duration-300 text-gray-900 dark:text-light shadow-sm hover:shadow-md text-sm"
+                placeholder="Search spaces, vibes, amenities..."
               />
-              <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl" />
+              <CiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-lg" />
             </div>
 
             <button
               onClick={toggleFilter}
-              className="flex items-center gap-2 px-3 py-1 border border-darkBlue dark:border-light hover:bg-darkBlue hover:text-light dark:hover:bg-light dark:hover:text-darkBlue rounded-lg hover:scale-105 transition duration-300 cursor-pointer">
+              className={`relative flex items-center gap-2 px-3 py-3 rounded-xl font-medium transition-all duration-300 text-sm
+              ${
+                filter
+                  ? 'bg-blue-500 text-white shadow-md'
+                  : 'border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+              }`}>
               {filter ? (
-                <span className="flex items-center gap-2">
-                  <MdOutlineFilterListOff className="text-xl" />
-                  <span className="hidden sm:inline">Filter</span>
-                </span>
+                <MdClose className="text-lg" />
               ) : (
-                <span className="flex items-center gap-2">
-                  <MdOutlineFilterList className="text-xl" />
-                  <span className="hidden sm:inline">Filter</span>
+                <MdOutlineFilterList className="text-lg" />
+              )}
+              <span className="hidden sm:inline">
+                {filter ? 'Close' : 'Filters'}
+              </span>
+              {totalActiveFilters > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                  {totalActiveFilters}
                 </span>
               )}
             </button>
           </div>
 
-          {/* Filter options */}
+          {/* Compact Filter Panel */}
           {filter && (
-            <div className="mt-4 p-5 bg-white/70 dark:bg-gray-800/60 backdrop-blur-xl border border-white/20 dark:border-gray-700/30 rounded-2xl shadow-xl shadow-blue-500/10 dark:shadow-blue-500/10 transition-all duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">Filter by category</h2>
-                <button
-                  onClick={toggleFilter}
-                  className="text-gray-500 dark:text-gray-400 hover:text-darkBlue dark:hover:text-light">
-                  <MdOutlineFilterListOff className="text-xl" />
-                </button>
+            <div className="mt-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50 rounded-2xl shadow-xl shadow-blue-500/5 dark:shadow-blue-500/10 transition-all duration-300 overflow-hidden">
+              {/* Compact Header */}
+              <div className="p-4 border-b border-gray-200/50 dark:border-gray-700/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                      Find Your Vibe ✨
+                    </h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {totalActiveFilters > 0
+                        ? `${totalActiveFilters} active`
+                        : 'No filters'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {totalActiveFilters > 0 && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      onClick={toggleFilter}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                      <MdClose className="text-lg text-gray-500" />
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {Object.keys(categoryFilters).map((category) => (
-                  <div
-                    key={category}
-                    className={`flex items-center gap-3 p-3 border ${
-                      categoryFilters[category as keyof typeof categoryFilters]
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400'
-                        : 'border-gray-200 dark:border-gray-700'
-                    } rounded-lg hover:border-blue-400 dark:hover:border-blue-500 transition-colors cursor-pointer group`}
-                    onClick={() => handleCategoryChange(category)}>
-                    <input
-                      type="checkbox"
-                      id={category.toLowerCase().replace(' ', '-')}
-                      checked={
-                        categoryFilters[
-                          category as keyof typeof categoryFilters
-                        ]
-                      }
-                      onChange={() => {}}
-                      className="w-5 h-5 text-blue-500 rounded border-gray-300 focus:ring-blue-400 cursor-pointer"
-                    />
-                    <label
-                      htmlFor={category.toLowerCase().replace(' ', '-')}
-                      className="flex-1 cursor-pointer font-medium group-hover:text-blue-500 transition-colors">
-                      {category}
-                    </label>
+              {/* Compact Tabs */}
+              <div className="px-4 pt-3">
+                <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700/50 rounded-xl p-0.5">
+                  <button
+                    onClick={() => setActiveFilterTab('categories')}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-all duration-300 text-sm ${
+                      activeFilterTab === 'categories'
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}>
+                    Spaces
+                    {activeFilters.length > 0 && (
+                      <span className="ml-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-xs px-1.5 py-0.5 rounded-full">
+                        {activeFilters.length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveFilterTab('amenities')}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-all duration-300 text-sm ${
+                      activeFilterTab === 'amenities'
+                        ? 'bg-white dark:bg-gray-600 text-purple-600 dark:text-purple-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+                    }`}>
+                    Amenities
+                    {activeAmenityFilters.length > 0 && (
+                      <span className="ml-1 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 text-xs px-1.5 py-0.5 rounded-full">
+                        {activeAmenityFilters.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Compact Content */}
+              <div className="p-4">
+                {activeFilterTab === 'categories' && (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      What's your vibe? 🎯
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {Object.entries(CATEGORIES_CONFIG).map(
+                        ([category, config]) => {
+                          const IconComponent = config.icon;
+                          const isActive =
+                            categoryFilters[
+                              category as keyof typeof categoryFilters
+                            ];
+                          return (
+                            <button
+                              key={category}
+                              onClick={() => handleCategoryChange(category)}
+                              className={`group relative p-4 rounded-xl border transition-all duration-300 text-left hover:scale-[1.02]
+                            ${
+                              isActive
+                                ? `border-${config.color}-400 bg-${config.color}-50 dark:bg-${config.color}-900/20 shadow-md`
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm'
+                            }`}>
+                              <div className="flex items-center space-x-3">
+                                <div
+                                  className={`p-2 rounded-lg ${
+                                    isActive
+                                      ? `bg-${config.color}-100 dark:bg-${config.color}-800`
+                                      : 'bg-gray-100 dark:bg-gray-700'
+                                  } transition-colors`}>
+                                  <IconComponent
+                                    className={`text-lg ${
+                                      isActive
+                                        ? `text-${config.color}-600 dark:text-${config.color}-400`
+                                        : 'text-gray-600 dark:text-gray-400'
+                                    }`}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4
+                                    className={`font-semibold text-sm ${
+                                      isActive
+                                        ? `text-${config.color}-700 dark:text-${config.color}-300`
+                                        : 'text-gray-800 dark:text-gray-200'
+                                    }`}>
+                                    {category}
+                                  </h4>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                    {config.description}
+                                  </p>
+                                </div>
+                                {isActive && (
+                                  <div
+                                    className={`p-0.5 rounded-full bg-${config.color}-500`}>
+                                    <FiCheck className="text-white text-xs" />
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
                   </div>
-                ))}
+                )}
+
+                {activeFilterTab === 'amenities' && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      What do you need? 🛠️
+                    </h3>
+
+                    {/* Compact Amenities */}
+                    {['tech', 'comfort', 'basic', 'service', 'work'].map(
+                      (category) => {
+                        const categoryAmenities = Object.entries(
+                          AMENITIES_CONFIG
+                        ).filter(([_, config]) => config.category === category);
+
+                        if (categoryAmenities.length === 0) return null;
+
+                        const categoryNames = {
+                          tech: '🔌 Tech',
+                          comfort: '✨ Comfort',
+                          basic: '🏢 Basics',
+                          service: '🍽️ Service',
+                          work: '💼 Work',
+                        };
+
+                        return (
+                          <div key={category} className="space-y-2">
+                            <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                              {
+                                categoryNames[
+                                  category as keyof typeof categoryNames
+                                ]
+                              }
+                            </h4>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              {categoryAmenities.map(([amenity, config]) => {
+                                const IconComponent = config.icon;
+                                const isActive = amenityFilters[amenity];
+                                return (
+                                  <button
+                                    key={amenity}
+                                    onClick={() => handleAmenityChange(amenity)}
+                                    className={`group flex items-center space-x-2 p-2.5 rounded-lg border transition-all duration-300 hover:scale-[1.02]
+                                  ${
+                                    isActive
+                                      ? `border-${config.color}-400 bg-${config.color}-50 dark:bg-${config.color}-900/20 shadow-sm`
+                                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                  }`}>
+                                    <IconComponent
+                                      className={`text-sm ${
+                                        isActive
+                                          ? `text-${config.color}-600 dark:text-${config.color}-400`
+                                          : 'text-gray-500 dark:text-gray-400'
+                                      }`}
+                                    />
+                                    <span
+                                      className={`text-xs font-medium truncate ${
+                                        isActive
+                                          ? `text-${config.color}-700 dark:text-${config.color}-300`
+                                          : 'text-gray-700 dark:text-gray-300'
+                                      }`}>
+                                      {amenity}
+                                    </span>
+                                    {isActive && (
+                                      <FiCheck
+                                        className={`text-${config.color}-600 dark:text-${config.color}-400 text-xs ml-auto flex-shrink-0`}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -443,7 +733,7 @@ const HomepageOptimized = () => {
 
         <main className="mt-10 max-w-7xl mx-auto">
           <div className="mb-8 text-center">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-blue-600 to-cyan-600 dark:from-blue-400 dark:via-blue-400 dark:to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-600 dark:from-blue-400 dark:via-cyan-400 dark:to-blue-400 bg-clip-text text-transparent">
               Discover unique spaces
             </h1>
             <p className="text-gray-600 dark:text-gray-300 text-lg max-w-2xl mx-auto leading-relaxed">

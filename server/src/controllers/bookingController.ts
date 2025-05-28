@@ -1,11 +1,13 @@
-import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import { Request, Response } from 'express';
 import Booking from '../models/Booking';
 import Room from '../models/Room';
 import User from '../models/User';
 import Earning from '../models/Earnings';
+import { sendBookingReceiptEmail } from '../services/emailService';
+import { createPlatformFeeRemittance } from './platformFeeRemittanceController';
 
-type AuthRequest = Request;
+type AuthRequest = Request & { user?: any };
 
 export const getAllBookings = async (
   req: Request,
@@ -1364,8 +1366,21 @@ export const markPaymentReceived = async (
 
     await booking.save();
 
-    // Create earning record for the host
-    await createEarningRecord(booking);
+    const earningRecord = await createEarningRecord(booking);
+
+    if (booking.paymentMethod === 'property' && earningRecord) {
+      try {
+        await createPlatformFeeRemittance(
+          booking.host.toString(),
+          earningRecord._id.toString(),
+          (booking._id as string).toString(),
+          earningRecord.platformFee
+        );
+      } catch (error) {
+        console.error('Error creating platform fee remittance:', error);
+        // Don't fail the whole operation if remittance creation fails
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -1576,11 +1591,6 @@ export const sendReceiptEmail = async (
         }),
       };
     }
-
-    // Import at the top of the file
-    const { sendBookingReceiptEmail } = await import(
-      '../services/emailService'
-    );
 
     // Send the receipt email
     await sendBookingReceiptEmail(email, receipt);

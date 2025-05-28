@@ -41,6 +41,14 @@ const PlatformRevenueDashboard = lazy(
   () => import('./pages/Dashboard/PlatformRevenueDashboard')
 );
 
+// Platform Fee Remittance Pages
+const PlatformFeeRemittance = lazy(
+  () => import('./pages/Host/PlatformFeeRemittance')
+);
+const PlatformFeeRemittanceDashboard = lazy(
+  () => import('./components/Admin/PlatformFeeRemittanceDashboard')
+);
+
 // UI Pages
 const Homepage = lazy(() => import('./pages/Ui/Homepage'));
 const About = lazy(() => import('./pages/Ui/About'));
@@ -143,6 +151,14 @@ const router = createBrowserRouter(
           }
         />
         <Route
+          path="/dashboard/platform-fees"
+          element={
+            <ProtectedRoute requiredRole="host">
+              {withSuspense(PlatformFeeRemittance)}
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="profile/edit"
           element={
             <ProtectedRoute>{withSuspense(EditUserProfile)}</ProtectedRoute>
@@ -234,6 +250,14 @@ const router = createBrowserRouter(
             element={
               <ProtectedRoute requiredRole="admin">
                 {withSuspense(PlatformRevenueDashboard)}
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="platform-fees"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                {withSuspense(PlatformFeeRemittanceDashboard)}
               </ProtectedRoute>
             }
           />

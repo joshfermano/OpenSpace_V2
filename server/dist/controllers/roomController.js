@@ -428,6 +428,7 @@ const getRoomsByHost = (req, res) => __awaiter(void 0, void 0, void 0, function*
         res.status(200).json({
             success: true,
             count: rooms.length,
+            total: total,
             totalPages: Math.ceil(total / limit),
             currentPage: page,
             data: rooms,
@@ -452,7 +453,7 @@ const getMyRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
             });
             return;
         }
-        const userId = req.user.id;
+        const userId = req.user._id || req.user.id;
         // Check if user is a host
         const user = yield User_1.default.findById(userId);
         if (!user || user.role !== 'host') {
@@ -481,6 +482,7 @@ const getMyRooms = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         res.status(200).json({
             success: true,
             count: rooms.length,
+            total: total,
             totalPages: Math.ceil(total / limit),
             currentPage: page,
             data: rooms,

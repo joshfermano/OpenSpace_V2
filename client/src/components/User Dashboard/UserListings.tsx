@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiHome, FiMap, FiEdit2, FiChevronRight, FiPlus } from 'react-icons/fi';
+import {
+  FiHome,
+  FiMap,
+  FiEdit2,
+  FiChevronRight,
+  FiPlus,
+  FiCreditCard,
+} from 'react-icons/fi';
 import { FaPesoSign } from 'react-icons/fa6';
 import { roomApi } from '../../services/roomApi';
 import { API_URL } from '../../services/core';
@@ -131,6 +138,14 @@ const UserListings = ({ userData, showAll = false }: UserListingsProps) => {
                 to="/dashboard/earnings"
                 className="inline-flex items-center px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800/40 rounded-lg transition-colors text-sm font-medium">
                 <FaPesoSign className="mr-1.5" /> View Earnings
+              </Link>
+            )}
+
+            {!showAll && listings.length > 0 && (
+              <Link
+                to="/dashboard/platform-fees"
+                className="inline-flex items-center px-3 py-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/40 rounded-lg transition-colors text-sm font-medium">
+                <FiCreditCard className="mr-1.5" /> Platform Fees
               </Link>
             )}
 

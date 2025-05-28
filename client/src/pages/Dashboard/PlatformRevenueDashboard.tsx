@@ -80,14 +80,12 @@ const PlatformRevenueDashboard = () => {
     return months[monthNumber - 1];
   };
 
-  // Prepare monthly trend data for chart display
   const chartData =
     revenueData.monthlyTrend?.map((item: any) => ({
       name: getMonthName(item.month),
       revenue: item.revenue,
     })) || [];
 
-  // Prepare payment method data for chart display
   const paymentMethodChartData =
     revenueData.byPaymentMethod?.map((item: any) => ({
       name:

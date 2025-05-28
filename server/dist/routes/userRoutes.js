@@ -84,23 +84,22 @@ const upload = (0, multer_1.default)({
     limits: { fileSize: 5 * 1024 * 1024 },
 });
 const router = express_1.default.Router();
-// Public routes (accessible without authentication)
+// Protected routes (require authentication) - SPECIFIC paths MUST come BEFORE parameterized routes
+// Dashboard
+router.get('/dashboard', authMiddleware_1.protect, userController.getDashboardData);
+router.get('/notifications', authMiddleware_1.protect, userController.getNotifications);
+router.put('/notifications/:id/read', authMiddleware_1.protect, userController.markNotificationAsRead);
+// Profile management
+router.get('/profile', authMiddleware_1.protect, userController.getUserProfile);
+router.put('/edit-profile', authMiddleware_1.protect, userController.updateProfile);
+router.put('/password', authMiddleware_1.protect, userController.changePassword);
+// Profile image upload
+router.post('/profile/upload-image', authMiddleware_1.protect, upload.single('profileImage'), userController.uploadProfileImage);
+// Favorites/wishlist management
+router.get('/saved-rooms', authMiddleware_1.protect, userController.getSavedRooms);
+router.post('/save-room', authMiddleware_1.protect, userController.saveRoom);
+router.delete('/unsave-rooms/:roomId', authMiddleware_1.protect, userController.unsaveRoom);
+// Public routes (accessible without authentication) - parameterized routes come LAST
 // Get user (for viewing host profiles publicly)
 router.get('/:userId', userController.getUserById);
-// Protected routes (require authentication)
-router.use(authMiddleware_1.protect);
-// Profile management
-router.get('/profile', userController.getUserProfile);
-router.put('/edit-profile', userController.updateProfile);
-router.put('/password', userController.changePassword);
-// Profile image upload
-router.post('/profile/upload-image', upload.single('profileImage'), userController.uploadProfileImage);
-// Dashboard
-router.get('/dashboard', userController.getDashboardData);
-router.get('/notifications', userController.getNotifications);
-router.put('/notifications/:id/read', userController.markNotificationAsRead);
-// Favorites/wishlist management
-router.get('/saved-rooms', userController.getSavedRooms);
-router.post('/save-room', userController.saveRoom);
-router.delete('/unsave-rooms/:roomId', userController.unsaveRoom);
 exports.default = router;

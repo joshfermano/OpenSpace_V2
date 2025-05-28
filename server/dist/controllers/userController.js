@@ -33,7 +33,17 @@ function getUserFromRequest(req, res) {
         _id: req.user._id,
         id: req.user.id,
         email: req.user.email,
+        keys: Object.keys(req.user),
     });
+    // Ensure we have a valid user ID
+    if (!req.user._id && !req.user.id) {
+        console.log('[getUserFromRequest] No valid user ID found');
+        res.status(401).json({
+            success: false,
+            message: 'Invalid user session',
+        });
+        return null;
+    }
     console.log('[getUserFromRequest] User found successfully');
     return req.user;
 }
@@ -420,15 +430,25 @@ const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, functio
             console.log('[getDashboardData] No current user found');
             return;
         }
-        // Extract user ID from the user object
-        const userId = currentUser._id;
+        // Extract user ID from the user object (try _id first, then id)
+        const userId = currentUser._id || currentUser.id;
         console.log('[getDashboardData] User ID:', userId);
-        // Validate user ID format
-        if (!mongoose_1.default.Types.ObjectId.isValid(userId)) {
-            console.log('[getDashboardData] Invalid user ID format');
+        console.log('[getDashboardData] Current user object keys:', Object.keys(currentUser));
+        // Validate user ID exists
+        if (!userId) {
+            console.log('[getDashboardData] No user ID found in user object');
             res.status(400).json({
                 success: false,
-                message: 'Invalid user ID format',
+                message: 'Invalid user ID',
+            });
+            return;
+        }
+        // Validate user ID format
+        if (!mongoose_1.default.Types.ObjectId.isValid(userId)) {
+            console.log('[getDashboardData] Invalid user ID format:', userId);
+            res.status(400).json({
+                success: false,
+                message: 'Invalid user ID',
             });
             return;
         }
@@ -532,7 +552,6 @@ const getDashboardData = (req, res) => __awaiter(void 0, void 0, void 0, functio
 exports.getDashboardData = getDashboardData;
 const getNotifications = (_req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // Placeholder for notifications implementation
         res.status(200).json({
             success: true,
             data: [],

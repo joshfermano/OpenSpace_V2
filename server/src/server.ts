@@ -31,6 +31,7 @@ import reviewRoutes from './routes/reviewRoutes';
 import earningsRoutes from './routes/earningsRoutes';
 import emailVerificationRoutes from './routes/emailVerificationRoutes';
 import adminEarningsRoutes from './routes/adminEarningsRoutes';
+import platformFeeRemittanceRoutes from './routes/platformFeeRemittanceRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -332,6 +333,7 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/earnings', earningsRoutes);
 app.use('/api/email-verification', emailVerificationRoutes);
 app.use('/api/admin/earnings', adminEarningsRoutes);
+app.use('/api/platform-fee-remittance', platformFeeRemittanceRoutes);
 
 if (
   process.env.NODE_ENV !== 'production' ||

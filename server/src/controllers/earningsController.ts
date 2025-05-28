@@ -4,6 +4,7 @@ import Earning from '../models/Earnings';
 import User from '../models/User';
 import Booking from '../models/Booking';
 import { v4 as uuidv4 } from 'uuid';
+import { createPlatformFeeRemittance } from './platformFeeRemittanceController';
 
 type AuthRequest = Request;
 
@@ -257,10 +258,24 @@ export const markBookingCompleted = async (
 
     if (earnings) {
       if (booking.paymentMethod === 'property') {
-        // For 'pay at property', make the earnings available now
         earnings.status = 'available';
         earnings.availableDate = new Date();
         await earnings.save();
+
+        try {
+          await createPlatformFeeRemittance(
+            booking.host.toString(),
+            earnings._id.toString(),
+            booking._id.toString(),
+            earnings.platformFee
+          );
+          console.log(
+            `Platform fee remittance created for completed booking ${booking._id}`
+          );
+        } catch (error) {
+          console.error('Error creating platform fee remittance:', error);
+          // Don't fail the whole operation if remittance creation fails
+        }
       }
 
       res.status(200).json({
@@ -289,6 +304,24 @@ export const markBookingCompleted = async (
         paymentMethod: booking.paymentMethod,
         availableDate: new Date(),
       });
+
+      // Create platform fee remittance for pay-at-property bookings
+      if (booking.paymentMethod === 'property') {
+        try {
+          await createPlatformFeeRemittance(
+            booking.host.toString(),
+            newEarnings._id.toString(),
+            booking._id.toString(),
+            newEarnings.platformFee
+          );
+          console.log(
+            `Platform fee remittance created for completed booking ${booking._id}`
+          );
+        } catch (error) {
+          console.error('Error creating platform fee remittance:', error);
+          // Don't fail the whole operation if remittance creation fails
+        }
+      }
 
       res.status(200).json({
         success: true,
